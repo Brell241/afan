@@ -1,0 +1,50 @@
+import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
+
+export const artists = pgTable('artists', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  bio: text('bio'),
+  photo_url: text('photo_url'),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+export const albums = pgTable('albums', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  artist_id: uuid('artist_id').references(() => artists.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  slug: text('slug').notNull(),
+  year: integer('year').notNull(),
+  label: text('label'),
+  genre: text('genre'),
+  image_url: text('image_url'),
+  description: text('description'),
+});
+
+export const tracks = pgTable('tracks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  album_id: uuid('album_id').references(() => albums.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  duration: text('duration'),
+  youtube_url: text('youtube_url'),
+  lyrics_fr: text('lyrics_fr'),
+  lyrics_original: text('lyrics_original'),
+  track_number: integer('track_number'),
+});
+
+export const contributions = pgTable('contributions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  type: text('type', { enum: ['lyrics', 'anecdote', 'link', 'media'] }).notNull(),
+  content: text('content'),
+  file_url: text('file_url'),
+  track_id: uuid('track_id').references(() => tracks.id, { onDelete: 'set null' }),
+  album_id: uuid('album_id').references(() => albums.id, { onDelete: 'set null' }),
+  user_id: text('user_id'),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending'),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+export type Artist = typeof artists.$inferSelect;
+export type Album = typeof albums.$inferSelect;
+export type Track = typeof tracks.$inferSelect;
+export type Contribution = typeof contributions.$inferSelect;
