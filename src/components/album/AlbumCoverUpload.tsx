@@ -36,11 +36,11 @@ export function AlbumCoverUpload({ albumId, imageUrl }: AlbumCoverUploadProps) {
   return (
     <>
       <div
-        className="relative group w-48 h-48 shrink-0 shadow-2xl rounded-sm overflow-hidden bg-[#282828] cursor-pointer"
+        className="relative group w-36 h-36 sm:w-44 sm:h-44 shrink-0 shadow-2xl rounded-sm overflow-hidden bg-[#282828] cursor-pointer"
         onClick={() => inputRef.current?.click()}
       >
         {currentUrl ? (
-          <Image src={currentUrl} alt="Pochette" fill sizes="192px" className="object-cover" />
+          <Image src={currentUrl} alt="Pochette" fill sizes="(max-width:640px) 144px, 176px" className="object-cover" />
         ) : (
           <div className="w-full h-full flex items-end p-4 bg-gradient-to-br from-[#444] to-[#1a1a1a]">
             <Camera size={32} className="text-white/15" />

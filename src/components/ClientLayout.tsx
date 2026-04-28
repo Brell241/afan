@@ -7,7 +7,7 @@ import { PlayerBar } from '@/components/player/PlayerBar';
 function ContentWrapper({ children }: { children: ReactNode }) {
   const { track } = usePlayer();
   return (
-    <div className={track ? 'pb-[72px]' : ''}>
+    <div style={track ? { paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' } : {}}>
       {children}
     </div>
   );
