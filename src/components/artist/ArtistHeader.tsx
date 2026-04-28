@@ -1,54 +1,127 @@
-import Image from 'next/image';
-import { Badge } from '@/components/ui/badge';
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { ImageIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ArtistHeaderProps {
+  id: string;
   name: string;
-  bio: string | null;
   photo_url: string | null;
-  albumCount: number;
 }
 
-export function ArtistHeader({ name, bio, photo_url, albumCount }: ArtistHeaderProps) {
+export function ArtistHeader({ id, name, photo_url }: ArtistHeaderProps) {
+  const [coverUrl, setCoverUrl] = useState(photo_url);
+  const [uploading, setUploading] = useState(false);
+  const [parallaxY, setParallaxY] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (!heroRef.current) return;
+      const rect = heroRef.current.getBoundingClientRect();
+      if (rect.bottom < 0) return;
+      setParallaxY(window.scrollY * 0.35);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  async function upload(file: File) {
+    setUploading(true);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch(`/api/upload/artist/${id}`, { method: 'PATCH', body: form });
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      setCoverUrl(url);
+      toast.success('Photo de couverture mise à jour.');
+    } catch {
+      toast.error('Erreur upload.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
-    <header className="relative w-full min-h-[60vh] flex items-end overflow-hidden bg-[#0d1a0d]">
-      {/* Fond végétal */}
+    <div ref={heroRef} className="relative w-full overflow-hidden" style={{ height: 640 }}>
+      {/* Background avec parallax */}
       <div
-        className="absolute inset-0 opacity-20"
+        className="absolute inset-x-0"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234a7c59' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          top: -130,
+          bottom: -130,
+          transform: `translateY(${parallaxY}px)`,
+          willChange: 'transform',
         }}
-      />
-
-      {/* Gradient bas */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0d1a0d] via-[#0d1a0d]/60 to-transparent" />
-
-      {/* Photo artiste */}
-      {photo_url && (
-        <div className="absolute inset-0">
-          <Image src={photo_url} alt={name} fill className="object-cover object-top opacity-40" />
-        </div>
-      )}
-
-      {/* Contenu */}
-      <div className="relative z-10 container mx-auto px-6 pb-12 pt-24">
-        <Badge className="mb-4 bg-[#4a7c59]/30 text-[#a3c9a8] border-[#4a7c59] hover:bg-[#4a7c59]/40">
-          Patrimoine Musical Gabonais
-        </Badge>
-
-        <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight mb-4 font-serif">
-          {name}
-        </h1>
-
-        <p className="text-[#a3c9a8] text-sm uppercase tracking-widest mb-6">
-          {albumCount} albums · 1970 — 2005
-        </p>
-
-        {bio && (
-          <p className="text-white/70 max-w-2xl text-base leading-relaxed">
-            {bio}
-          </p>
+      >
+        {coverUrl ? (
+          <div
+            className="w-full h-full"
+            style={{
+              backgroundImage: `url(${coverUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center top',
+              filter: 'brightness(0.38) saturate(0.8)',
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[#2c2416] via-[#181410] to-[#0a0a0a]" />
         )}
       </div>
-    </header>
+
+      {/* Dégradé principal bas */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/20 to-transparent" />
+      {/* Vignette gauche */}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/65 via-transparent to-transparent" />
+
+      {/* Nom de l'artiste — parallax propre (monte moins vite que le fond) */}
+      <div
+        className="absolute bottom-12 left-8 z-10 select-none"
+        style={{
+          transform: `translateY(${parallaxY * 0.18}px)`,
+          willChange: 'transform',
+        }}
+      >
+        <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.4em] mb-3">
+          Artiste
+        </p>
+        <h1
+          className="font-black text-white leading-[0.88] tracking-tighter"
+          style={{ fontSize: 'clamp(3.5rem, 8.5vw, 7.5rem)' }}
+        >
+          {name}
+        </h1>
+      </div>
+
+      {/* Bouton upload couverture */}
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="absolute top-5 right-5 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 hover:bg-black/85 border border-white/10 text-white/50 hover:text-white/80 text-xs backdrop-blur transition-all duration-200"
+      >
+        {uploading ? (
+          <span className="w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+        ) : (
+          <ImageIcon size={11} />
+        )}
+        Couverture
+      </button>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) upload(f);
+          e.target.value = '';
+        }}
+      />
+    </div>
   );
 }

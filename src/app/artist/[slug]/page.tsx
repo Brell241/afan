@@ -1,8 +1,12 @@
 import { notFound } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+import { eq, ne, sql } from 'drizzle-orm';
+import Link from 'next/link';
+import Image from 'next/image';
 import { db } from '@/db';
 import { artists, albums } from '@/db/schema';
+import { ArtistNav } from '@/components/artist/ArtistNav';
 import { ArtistHeader } from '@/components/artist/ArtistHeader';
+import { ArtistSidebar } from '@/components/artist/ArtistSidebar';
 import { AlbumTimeline } from '@/components/artist/AlbumTimeline';
 
 export async function generateStaticParams() {
@@ -25,27 +29,80 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
   const artistAlbums = await db.select().from(albums).where(eq(albums.artist_id, artist.id));
 
-  return (
-    <main className="min-h-screen bg-[#0d1a0d]">
-      <ArtistHeader
-        name={artist.name}
-        bio={artist.bio}
-        photo_url={artist.photo_url}
-        albumCount={artistAlbums.length}
-      />
-      <AlbumTimeline albums={artistAlbums} artistSlug={artist.slug} />
+  const years = artistAlbums.map((a) => a.year).filter(Boolean) as number[];
+  const yearStart = years.length ? Math.min(...years) : null;
+  const yearEnd = years.length ? Math.max(...years) : null;
 
-      {/* Section à propos */}
-      <section className="container mx-auto px-6 py-16 max-w-2xl">
-        <div className="border-t border-[#1a2e1a] pt-10">
-          <h2 className="text-lg font-serif text-[#4a7c59] mb-4">À propos d'Afan</h2>
-          <p className="text-white/40 text-sm leading-relaxed">
-            Afan — "La Forêt" en Fang — est un sanctuaire numérique open-source dédié à la
-            préservation du patrimoine musical gabonais. Chaque artiste est un arbre. Chaque
-            contribution est une racine supplémentaire. Rejoins la forêt.
-          </p>
+  const related = await db
+    .select({ id: artists.id, name: artists.name, slug: artists.slug, avatar_url: artists.avatar_url, photo_url: artists.photo_url })
+    .from(artists)
+    .where(ne(artists.id, artist.id))
+    .orderBy(sql`RANDOM()`)
+    .limit(3);
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0a]">
+      <ArtistNav name={artist.name} heroHeight={640} />
+
+      <div>
+        {/* Hero parallax — commence sous la nav transparente */}
+        <ArtistHeader
+          id={artist.id}
+          name={artist.name}
+          photo_url={artist.photo_url}
+        />
+
+        {/* Layout deux colonnes */}
+        <div className="flex flex-col lg:flex-row">
+          <ArtistSidebar
+            id={artist.id}
+            name={artist.name}
+            bio={artist.bio}
+            avatar_url={artist.avatar_url}
+            albumCount={artistAlbums.length}
+            yearStart={yearStart}
+            yearEnd={yearEnd}
+            death_year={artist.death_year}
+          />
+
+          {/* Contenu principal — prend tout l'espace restant */}
+          <div className="flex-1 min-w-0">
+            <AlbumTimeline albums={artistAlbums} artistSlug={artist.slug} />
+          </div>
         </div>
-      </section>
+
+        {/* Artistes à découvrir */}
+        {related.length > 0 && (
+          <footer className="px-8 py-10 border-t border-white/[0.04]">
+            <p className="text-white/20 text-[10px] font-bold uppercase tracking-[0.3em] mb-6">
+              À découvrir
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {related.map((a) => {
+                const img = a.avatar_url ?? a.photo_url;
+                return (
+                  <Link
+                    key={a.id}
+                    href={`/artist/${a.slug}`}
+                    className="group flex items-center gap-3 flex-1 px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.04] hover:border-white/[0.09] transition-all"
+                  >
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white/5">
+                      {img ? (
+                        <Image src={img} alt={a.name} fill sizes="40px" className="object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-white/5 to-transparent" />
+                      )}
+                    </div>
+                    <span className="text-white/60 text-sm font-medium group-hover:text-white/90 transition-colors truncate">
+                      {a.name}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </footer>
+        )}
+      </div>
     </main>
   );
 }

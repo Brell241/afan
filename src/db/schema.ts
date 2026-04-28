@@ -6,6 +6,9 @@ export const artists = pgTable('artists', {
   slug: text('slug').notNull().unique(),
   bio: text('bio'),
   photo_url: text('photo_url'),
+  avatar_url: text('avatar_url'),
+  born_year: integer('born_year'),
+  death_year: integer('death_year'),
   created_at: timestamp('created_at').defaultNow(),
 });
 
@@ -15,10 +18,12 @@ export const albums = pgTable('albums', {
   title: text('title').notNull(),
   slug: text('slug').notNull(),
   year: integer('year').notNull(),
+  format: text('format'),
   label: text('label'),
   genre: text('genre'),
   image_url: text('image_url'),
   description: text('description'),
+  credits: text('credits'),
 });
 
 export const tracks = pgTable('tracks', {
@@ -26,9 +31,11 @@ export const tracks = pgTable('tracks', {
   album_id: uuid('album_id').references(() => albums.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   duration: text('duration'),
+  image_url: text('image_url'),
   youtube_url: text('youtube_url'),
   lyrics_fr: text('lyrics_fr'),
   lyrics_original: text('lyrics_original'),
+  context: text('context'),
   track_number: integer('track_number'),
 });
 

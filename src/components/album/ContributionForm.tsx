@@ -86,7 +86,7 @@ export function ContributionForm({ albumId, trackId, open, onClose }: Contributi
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-[#0d1a0d] border-[#2a4a2a] text-white max-w-md">
+      <DialogContent className="bg-[#161616] border-white/10 text-white max-w-md rounded-2xl">
         {step === 'form' && (
           <div className="flex flex-col gap-5">
             <div>
@@ -99,7 +99,7 @@ export function ContributionForm({ albumId, trackId, open, onClose }: Contributi
             <div className="flex flex-col gap-2">
               <Label className="text-white/70">Type de contribution</Label>
               <Select value={type} onValueChange={(v) => setType(v as ContributionType)}>
-                <SelectTrigger className="bg-[#1a2e1a] border-[#2a4a2a] text-white">
+                <SelectTrigger className="bg-[#1e1e1e] border-white/10 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a2e1a] border-[#2a4a2a]">
@@ -132,7 +132,7 @@ export function ContributionForm({ albumId, trackId, open, onClose }: Contributi
 
             <Button
               onClick={handleSubmit}
-              className="bg-[#4a7c59] hover:bg-[#5a8c69] text-white"
+              className="bg-[#4ade80] hover:bg-[#22c55e] text-black font-semibold rounded-full"
             >
               {session ? 'Soumettre' : 'Continuer →'}
             </Button>
