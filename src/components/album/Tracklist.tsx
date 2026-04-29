@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import Image from 'next/image';
-import { Camera, Music2 } from 'lucide-react';
+import { Camera, Music2, PencilLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlayer } from '@/lib/player-context';
 import type { Track, Album } from '@/db/schema';
@@ -11,6 +11,7 @@ interface TracklistProps {
   tracks: Track[];
   album: Album;
   artist: { name: string; slug: string };
+  onOpenTrack?: (track: Track) => void;
 }
 
 function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
@@ -69,7 +70,7 @@ function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
   );
 }
 
-export function Tracklist({ tracks, album, artist }: TracklistProps) {
+export function Tracklist({ tracks, album, artist, onOpenTrack }: TracklistProps) {
   const { play, track: activeTrack } = usePlayer();
   const playTrack = (track: Track) => play(track, album, artist, tracks);
 
@@ -142,6 +143,16 @@ export function Tracklist({ tracks, album, artist }: TracklistProps) {
               <span className="text-white/15 text-xs opacity-0 group-hover:opacity-100 shrink-0">
                 lien manquant
               </span>
+            )}
+
+            {onOpenTrack && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onOpenTrack(track); }}
+                aria-label="Éditer ce titre"
+                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-white/25 hover:text-white/70 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100"
+              >
+                <PencilLine size={13} />
+              </button>
             )}
           </div>
         );

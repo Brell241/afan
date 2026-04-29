@@ -47,13 +47,13 @@ export function ArtistHeader({ id, name, photo_url }: ArtistHeaderProps) {
   }
 
   return (
-    <div ref={heroRef} className="relative w-full overflow-hidden" style={{ height: 640 }}>
+    <div ref={heroRef} className="relative w-full overflow-hidden" style={{ height: 460 }}>
       {/* Background avec parallax */}
       <div
         className="absolute inset-x-0"
         style={{
-          top: -130,
-          bottom: -130,
+          top: -80,
+          bottom: -80,
           transform: `translateY(${parallaxY}px)`,
           willChange: 'transform',
         }}

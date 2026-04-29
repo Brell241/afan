@@ -125,6 +125,15 @@ def fetch_discogs_artist_id(artist_name: str) -> int | None:
     return a.get("id")
 
 
+def fetch_discogs_artist_profile(artist_id: int) -> str:
+    data = _discogs_get(f"https://api.discogs.com/artists/{artist_id}")
+    if not data:
+        return ""
+    profile = (data.get("profile") or "").strip()
+    profile = re.sub(r'\[/?[a-z](?:=[^\]]+)?\]', '', profile).strip()
+    return profile[:1200] if profile else ""
+
+
 def fetch_discogs_tracklist(release_id: int) -> dict:
     data = _discogs_get(DISCOGS_RELEASE.format(id=release_id))
     if not data:
@@ -719,6 +728,11 @@ def main():
     if discogs_id:
         print("  Albums...")
         discography = build_discography_from_discogs(artist_name, discogs_id)
+        if not wiki["bio"]:
+            print("  → Tentative bio Discogs...")
+            wiki["bio"] = fetch_discogs_artist_profile(discogs_id)
+            if wiki["bio"]:
+                print(f"  ✓ Bio Discogs : {len(wiki['bio'])} car.")
 
     # 3. Si pas de discographie Discogs → utiliser la chaîne YouTube
     if not discography and args.yt_channel and not args.no_youtube:

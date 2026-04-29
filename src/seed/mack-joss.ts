@@ -5,7 +5,8 @@ import { db } from '../db';
 import { artists, albums, tracks } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
-const MACK_JOSS_BIO = ``;
+const MACK_JOSS_BIO = `Artist, producer, percussionist, vocalist, drum programmer, writer, composer, cover designer and engineer from Gabon.
+(b. 1946 - d. 2018)`;
 
 const MACK_JOSS_DISCOGRAPHY = [
   {

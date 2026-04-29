@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { db } from '@/db';
 import { artists, albums } from '@/db/schema';
+import { Radio } from 'lucide-react';
 import { ArtistNav } from '@/components/artist/ArtistNav';
 import { ArtistHeader } from '@/components/artist/ArtistHeader';
 import { ArtistSidebar } from '@/components/artist/ArtistSidebar';
@@ -42,7 +43,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <ArtistNav name={artist.name} heroHeight={640} />
+      <ArtistNav name={artist.name} heroHeight={460} />
 
       <div>
         {/* Hero parallax — commence sous la nav transparente */}
@@ -51,6 +52,14 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           name={artist.name}
           photo_url={artist.photo_url}
         />
+
+        {/* Bandeau d'information */}
+        <div className="flex items-center gap-2.5 px-8 py-2.5 border-b border-white/[0.04] bg-[#0d0d0d]">
+          <Radio size={12} className="text-white/20 shrink-0" />
+          <p className="text-white/25 text-[11px] tracking-wide">
+            Aucune musique n&apos;est hébergée sur cette plateforme — tous les titres sont diffusés depuis YouTube.
+          </p>
+        </div>
 
         {/* Layout deux colonnes */}
         <div className="flex flex-col lg:flex-row">

@@ -6,8 +6,7 @@ import { db } from '@/db';
 import { artists, albums, tracks } from '@/db/schema';
 import { AlbumNav } from '@/components/album/AlbumNav';
 import { AlbumCoverUpload } from '@/components/album/AlbumCoverUpload';
-import { Tracklist } from '@/components/album/Tracklist';
-import { ContributionSection } from '@/components/album/ContributionSection';
+import { TracklistWithSheet } from '@/components/album/TracklistWithSheet';
 
 const HERO_HEIGHT = 320;
 
@@ -35,7 +34,6 @@ export default async function AlbumPage({
     .where(eq(tracks.album_id, album.id))
     .orderBy(tracks.track_number);
 
-  const hasLyrics = albumTracks.some((t) => t.lyrics_fr || t.lyrics_original);
   const creditsList = album.credits?.split(' · ') ?? [];
 
   return (
@@ -132,7 +130,7 @@ export default async function AlbumPage({
             <span className="flex-1 ml-4 text-white/25 text-[10px] uppercase tracking-widest">Titre</span>
             <Music2 size={13} className="text-white/25" />
           </div>
-          <Tracklist tracks={albumTracks} album={album} artist={{ name: artist.name, slug: artist.slug }} />
+          <TracklistWithSheet tracks={albumTracks} album={album} artist={{ name: artist.name, slug: artist.slug }} />
         </section>
 
         {/* Crédits */}
@@ -147,34 +145,6 @@ export default async function AlbumPage({
           </section>
         )}
 
-        {/* Contributions */}
-        <section className="border-t border-white/[0.06] pt-8">
-          <ContributionSection albumId={album.id} hasLyrics={hasLyrics} />
-
-          {hasLyrics && (
-            <div className="mt-6 space-y-4">
-              {albumTracks.filter((t) => t.lyrics_fr || t.lyrics_original).map((track) => (
-                <div key={track.id} className="p-6 rounded-xl bg-white/[0.03] border border-white/[0.04]">
-                  <h3 className="text-white font-semibold mb-4">{track.title}</h3>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {track.lyrics_fr && (
-                      <div>
-                        <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mb-3">Français</p>
-                        <pre className="text-white/55 text-sm leading-8 whitespace-pre-wrap font-sans">{track.lyrics_fr}</pre>
-                      </div>
-                    )}
-                    {track.lyrics_original && (
-                      <div>
-                        <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mb-3">Fang</p>
-                        <pre className="text-white/55 text-sm leading-8 whitespace-pre-wrap font-sans">{track.lyrics_original}</pre>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
       </div>
     </div>
   );

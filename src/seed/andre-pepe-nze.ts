@@ -5,7 +5,9 @@ import { db } from '../db';
 import { artists, albums, tracks } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
-const ANDR_P_BIO = ``;
+const ANDR_P_BIO = `André Pépé Nzé est un chanteur et musicien gabonais d'expression fang, originaire du Gabon. Interprète de la musique traditionnelle et folk fang, il puise ses textes dans la langue et les traditions orales de son peuple. Son répertoire mêle chants populaires, ballades poétiques et titres engagés, diffusés notamment via sa chaîne YouTube officielle (@APN245). Parmi ses œuvres les plus connues figurent Awou M'awou, Andia, Dzale et Nkoum Nzeghe.
+
+Pendant la transition politique de 2023 au Gabon, sa chanson Dzalé — hymne au village et au retour aux sources — a été mise en avant par le président de la transition, lui offrant un nouveau souffle et ramenant l'artiste sous les feux de la scène nationale.`;
 
 const ANDR_P_DISCOGRAPHY = [
   {
@@ -15,7 +17,7 @@ const ANDR_P_DISCOGRAPHY = [
     format: "Compilation YouTube",
     label: "",
     genre: "Folk-Pop Fang",
-    description: "",
+    description: "Sélection des titres marquants d'André Pépé Nzé, disponibles sur sa chaîne YouTube officielle. Cette compilation illustre l'étendue de son répertoire folk fang, des ballades intimistes aux chants porteurs d'une philosophie du retour aux racines.",
     credits: null,
     tracks: [
       { title: "Awou M'awou", track_number: 1, youtube_url: 'https://www.youtube.com/watch?v=bbEOzCxNu2o' },
@@ -27,7 +29,7 @@ const ANDR_P_DISCOGRAPHY = [
       { title: "Endan'ayong", track_number: 7, youtube_url: 'https://www.youtube.com/watch?v=o4m7YRl4A6I' },
       { title: "Nkoum Elone", track_number: 8, youtube_url: 'https://www.youtube.com/watch?v=nOmeF8_fZGQ' },
       { title: "Andia", track_number: 9, youtube_url: 'https://www.youtube.com/watch?v=M0q9GOK-aR4' },
-      { title: "Dzale", track_number: 10, youtube_url: 'https://www.youtube.com/watch?v=MJJYT_T13tw' },
+      { title: "Dzale", track_number: 10, youtube_url: 'https://www.youtube.com/watch?v=MJJYT_T13tw', context: "Chant de l'exode intérieur et du retour au village natal. Pendant la transition politique gabonaise de 2023, ce titre a été mis en avant par le président de la transition, faisant de Dzalé un symbole du renouveau et du retour aux racines promu par le nouveau pouvoir. L'artiste, jusque-là discret, a ainsi refait surface sur la scène nationale." },
       { title: "La cité s'en va", track_number: 11, youtube_url: 'https://www.youtube.com/watch?v=0fTr4D2Hb3k' },
     ],
   },
@@ -90,7 +92,7 @@ export async function seed() {
           youtube_url: t.youtube_url ?? null,
           lyrics_fr: null,
           lyrics_original: null,
-          context: null,
+          context: ('context' in t ? t.context : null) ?? null,
         }))
       );
       console.log(`     └ ${trackCount} titre(s)`);
