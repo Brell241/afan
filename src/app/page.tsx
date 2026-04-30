@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { artists, albums, tracks } from '@/db/schema';
 import { count } from 'drizzle-orm';
 import { HomeArtistList } from '@/components/HomeArtistList';
+import { HomeNav } from '@/components/HomeNav';
 
 export default async function HomePage() {
   let artistList: { id: string; name: string; slug: string; bio: string | null; photo_url: string | null; avatar_url: string | null }[] = [];
@@ -41,17 +42,7 @@ export default async function HomePage() {
     <div className="min-h-screen bg-[#121212]">
 
       {/* ── NAV ── */}
-      <nav className="fixed top-0 inset-x-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="text-white font-black text-xl tracking-tight">afan</span>
-          <Link
-            href={`/artist/${list[0]?.slug ?? 'pierre-claver-zeng'}`}
-            className="bg-white text-black text-xs font-bold px-5 py-2.5 rounded-full hover:scale-105 transition-transform"
-          >
-            Explorer
-          </Link>
-        </div>
-      </nav>
+      <HomeNav />
 
       {/* ── HERO ── */}
       <section className="min-h-screen flex flex-col items-center justify-center text-center px-6 pt-16">
@@ -95,7 +86,9 @@ export default async function HomePage() {
       </section>
 
       {/* ── ARTISTES ── */}
-      <HomeArtistList artists={list} />
+      <div id="artistes">
+        <HomeArtistList artists={list} />
+      </div>
 
       {/* ── COMMENT CA MARCHE ── */}
       <section className="border-t border-white/5 max-w-7xl mx-auto px-6 py-20">

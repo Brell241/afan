@@ -6,6 +6,7 @@ import {
   X, Play, Pause, ExternalLink, Music2, Loader2, AlertCircle,
   PencilLine, WandSparkles, BookOpen,
 } from 'lucide-react';
+import { ShareButton } from '@/components/ui/ShareButton';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { usePlayer } from '@/lib/player-context';
@@ -357,6 +358,15 @@ export function TrackSheet({ track, tracks, album, artist, onClose, onSaved }: T
             <h2 className="text-white font-bold text-[17px] leading-snug truncate mt-0.5">{track?.title}</h2>
             <p className="text-white/40 text-sm mt-0.5">{artist.name}</p>
           </div>
+          {track && (
+            <ShareButton
+              url={`/artist/${artist.slug}/album/${album.slug}`}
+              title={`"${track.title}" par ${artist.name} — Afan`}
+              text={track.context ? track.context.slice(0, 200) : `Album : ${album.title}${album.year ? ` (${album.year})` : ''}`}
+              iconOnly
+              className="text-white/30 hover:text-white/70 transition-colors p-1 mt-0.5 shrink-0"
+            />
+          )}
           <button onClick={onClose} aria-label="Fermer" className="text-white/30 hover:text-white/70 transition-colors p-1 mt-0.5 shrink-0">
             <X size={18} />
           </button>

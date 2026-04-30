@@ -6,6 +6,7 @@ import {
   SkipBack, SkipForward, Volume2, VolumeX, Volume1,
 } from 'lucide-react';
 import { usePlayer } from '@/lib/player-context';
+import { ShareButton } from '@/components/ui/ShareButton';
 
 function formatTime(s: number) {
   if (!s || isNaN(s)) return '0:00';
@@ -103,6 +104,16 @@ export function PlayerBar() {
           </button>
         </div>
 
+        {/* Partager (mobile) */}
+        {artist?.slug && album?.slug && (
+          <ShareButton
+            url={`/artist/${artist.slug}/album/${album.slug}`}
+            title={`"${track.title}" par ${artist.name} — Afan`}
+            iconOnly
+            className="w-8 h-8 flex items-center justify-center text-white/25 hover:text-white/60 active:scale-90 transition-all shrink-0"
+          />
+        )}
+
         {/* Fermer */}
         <button
           onClick={close}
@@ -199,6 +210,16 @@ export function PlayerBar() {
               </div>
             </div>
           </div>
+
+          {/* Partager (desktop) */}
+          {artist?.slug && album?.slug && (
+            <ShareButton
+              url={`/artist/${artist.slug}/album/${album.slug}`}
+              title={`"${track.title}" par ${artist.name} — Afan`}
+              iconOnly
+              className="text-white/25 hover:text-white/70 transition-colors p-1"
+            />
+          )}
 
           {track.youtube_url && (
             <a href={track.youtube_url} target="_blank" rel="noopener noreferrer"

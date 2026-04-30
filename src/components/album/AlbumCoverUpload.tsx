@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Camera, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,6 +14,7 @@ interface AlbumCoverUploadProps {
 export function AlbumCoverUpload({ albumId, imageUrl }: AlbumCoverUploadProps) {
   const [currentUrl, setCurrentUrl] = useState(imageUrl);
   const [uploading, setUploading] = useState(false);
+  const router = useRouter();
 
   const inputId = `cover-upload-${albumId}`;
 
@@ -26,6 +28,7 @@ export function AlbumCoverUpload({ albumId, imageUrl }: AlbumCoverUploadProps) {
       const { url } = await res.json();
       setCurrentUrl(url);
       toast.success('Pochette mise à jour.');
+      router.refresh();
     } catch {
       toast.error('Erreur upload.');
     } finally {

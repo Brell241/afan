@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { notFound } from 'next/navigation';
 import { eq, ne, sql } from 'drizzle-orm';
 import Link from 'next/link';
@@ -50,6 +52,8 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
         <ArtistHeader
           id={artist.id}
           name={artist.name}
+          slug={artist.slug}
+          bio={artist.bio}
           photo_url={artist.photo_url}
         />
 
@@ -68,6 +72,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
             name={artist.name}
             bio={artist.bio}
             avatar_url={artist.avatar_url}
+            photo_url={artist.photo_url}
             albumCount={artistAlbums.length}
             yearStart={yearStart}
             yearEnd={yearEnd}

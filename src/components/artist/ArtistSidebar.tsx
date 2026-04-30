@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Camera, Disc3, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,6 +11,7 @@ interface ArtistSidebarProps {
   name: string;
   bio: string | null;
   avatar_url: string | null;
+  photo_url: string | null;
   albumCount: number;
   yearStart?: number | null;
   yearEnd?: number | null;
@@ -21,14 +23,16 @@ export function ArtistSidebar({
   name,
   bio,
   avatar_url,
+  photo_url,
   albumCount,
   yearStart,
   yearEnd,
   death_year,
 }: ArtistSidebarProps) {
-  const [avatarUrl, setAvatarUrl] = useState(avatar_url);
+  const [avatarUrl, setAvatarUrl] = useState(avatar_url ?? photo_url);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   async function upload(file: File) {
     setUploading(true);
@@ -43,6 +47,7 @@ export function ArtistSidebar({
       const { url } = await res.json();
       setAvatarUrl(url);
       toast.success('Photo de profil mise à jour.');
+      router.refresh();
     } catch {
       toast.error('Erreur upload.');
     } finally {

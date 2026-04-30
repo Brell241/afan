@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { notFound } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
 import { Music2 } from 'lucide-react';
@@ -7,6 +9,7 @@ import { artists, albums, tracks } from '@/db/schema';
 import { AlbumNav } from '@/components/album/AlbumNav';
 import { AlbumCoverUpload } from '@/components/album/AlbumCoverUpload';
 import { TracklistWithSheet } from '@/components/album/TracklistWithSheet';
+import { ShareButton } from '@/components/ui/ShareButton';
 
 const HERO_HEIGHT = 320;
 
@@ -107,6 +110,14 @@ export default async function AlbumPage({
                   <><span className="text-white/20">·</span>
                   <span className="text-white/40">{albumTracks.length} titre{albumTracks.length !== 1 ? 's' : ''}</span></>
                 )}
+              </div>
+              <div className="mt-3">
+                <ShareButton
+                  url={`/artist/${slug}/album/${albumSlug}`}
+                  title={`${album.title} — ${artist.name} · Afan`}
+                  text={album.description ? album.description.slice(0, 200) : `${album.year ?? ''}${album.label ? ` · ${album.label}` : ''}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.07] hover:bg-white/[0.13] border border-white/[0.1] text-white/50 hover:text-white/80 text-xs transition-all duration-200"
+                />
               </div>
             </div>
           </div>

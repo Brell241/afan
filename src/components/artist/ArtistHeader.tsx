@@ -1,21 +1,26 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { ShareButton } from '@/components/ui/ShareButton';
 
 interface ArtistHeaderProps {
   id: string;
   name: string;
+  slug: string;
+  bio?: string | null;
   photo_url: string | null;
 }
 
-export function ArtistHeader({ id, name, photo_url }: ArtistHeaderProps) {
+export function ArtistHeader({ id, name, slug, bio, photo_url }: ArtistHeaderProps) {
   const [coverUrl, setCoverUrl] = useState(photo_url);
   const [uploading, setUploading] = useState(false);
   const [parallaxY, setParallaxY] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const onScroll = () => {
@@ -39,6 +44,7 @@ export function ArtistHeader({ id, name, photo_url }: ArtistHeaderProps) {
       const { url } = await res.json();
       setCoverUrl(url);
       toast.success('Photo de couverture mise à jour.');
+      router.refresh();
     } catch {
       toast.error('Erreur upload.');
     } finally {
@@ -97,19 +103,27 @@ export function ArtistHeader({ id, name, photo_url }: ArtistHeaderProps) {
         </h1>
       </div>
 
-      {/* Bouton upload couverture */}
-      <button
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="absolute top-5 right-5 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 hover:bg-black/85 border border-white/10 text-white/50 hover:text-white/80 text-xs backdrop-blur transition-all duration-200"
-      >
-        {uploading ? (
-          <span className="w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
-        ) : (
-          <ImageIcon size={11} />
-        )}
-        Couverture
-      </button>
+      {/* Boutons top-right */}
+      <div className="absolute top-5 right-5 z-20 flex items-center gap-2">
+        <ShareButton
+          url={`/artist/${slug}`}
+          title={`${name} — Afan`}
+          text={bio ? bio.slice(0, 200) : undefined}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 hover:bg-black/85 border border-white/10 text-white/50 hover:text-white/80 text-xs backdrop-blur transition-all duration-200"
+        />
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 hover:bg-black/85 border border-white/10 text-white/50 hover:text-white/80 text-xs backdrop-blur transition-all duration-200"
+        >
+          {uploading ? (
+            <span className="w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+          ) : (
+            <ImageIcon size={11} />
+          )}
+          Couverture
+        </button>
+      </div>
 
       <input
         ref={inputRef}
