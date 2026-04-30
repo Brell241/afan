@@ -8,6 +8,7 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://afan.atekbot.space'),
   title: 'Afan — La Forêt | Patrimoine Musical Gabonais',
   description: 'Sanctuaire numérique open-source dédié à la préservation du patrimoine musical gabonais.',
 };

@@ -103,8 +103,8 @@ export function ArtistHeader({ id, name, slug, bio, photo_url }: ArtistHeaderPro
         </h1>
       </div>
 
-      {/* Boutons top-right */}
-      <div className="absolute top-5 right-5 z-20 flex items-center gap-2">
+      {/* Boutons top-right — décalés sous la nav fixe (h-14 = 56px) */}
+      <div className="absolute top-16 right-5 z-20 flex items-center gap-2">
         <ShareButton
           url={`/artist/${slug}`}
           title={`${name} — Afan`}

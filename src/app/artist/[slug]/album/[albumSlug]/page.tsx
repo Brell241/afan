@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
 import { Music2 } from 'lucide-react';
@@ -10,6 +11,38 @@ import { AlbumNav } from '@/components/album/AlbumNav';
 import { AlbumCoverUpload } from '@/components/album/AlbumCoverUpload';
 import { TracklistWithSheet } from '@/components/album/TracklistWithSheet';
 import { ShareButton } from '@/components/ui/ShareButton';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; albumSlug: string }>;
+}): Promise<Metadata> {
+  const { slug, albumSlug } = await params;
+  if (!process.env.DATABASE_URL) return {};
+  try {
+    const [artist] = await db.select().from(artists).where(eq(artists.slug, slug));
+    if (!artist) return {};
+    const [album] = await db
+      .select()
+      .from(albums)
+      .where(and(eq(albums.artist_id, artist.id), eq(albums.slug, albumSlug)));
+    if (!album) return {};
+    const description =
+      album.description?.slice(0, 160) ??
+      `${artist.name} · ${album.year ?? ''} · ${album.label ?? 'Album'}`.replace(/ · $/, '');
+    return {
+      title: `${album.title} — ${artist.name} · Afan`,
+      description,
+      openGraph: {
+        title: `${album.title} — ${artist.name} · Afan`,
+        description,
+        images: album.image_url ? [{ url: album.image_url }] : [],
+      },
+    };
+  } catch {
+    return {};
+  }
+}
 
 const HERO_HEIGHT = 320;
 

@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { eq, ne, sql } from 'drizzle-orm';
 import Link from 'next/link';
@@ -11,6 +12,29 @@ import { ArtistNav } from '@/components/artist/ArtistNav';
 import { ArtistHeader } from '@/components/artist/ArtistHeader';
 import { ArtistSidebar } from '@/components/artist/ArtistSidebar';
 import { AlbumTimeline } from '@/components/artist/AlbumTimeline';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  if (!process.env.DATABASE_URL) return {};
+  try {
+    const [artist] = await db.select().from(artists).where(eq(artists.slug, slug));
+    if (!artist) return {};
+    const description = artist.bio?.slice(0, 160) ?? `Découvrez la discographie de ${artist.name} sur Afan.`;
+    return {
+      title: `${artist.name} — Afan`,
+      description,
+      openGraph: {
+        title: `${artist.name} — Afan`,
+        description,
+        images: (artist.avatar_url ?? artist.photo_url)
+        ? [{ url: (artist.avatar_url ?? artist.photo_url)! }]
+        : [],
+      },
+    };
+  } catch {
+    return {};
+  }
+}
 
 export async function generateStaticParams() {
   if (!process.env.DATABASE_URL) return [];
