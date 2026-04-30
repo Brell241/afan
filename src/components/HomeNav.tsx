@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { useSearch } from '@/lib/search-context';
 
@@ -13,12 +12,6 @@ export function HomeNav() {
         <span className="text-white font-black text-xl tracking-tight">afan</span>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/a-propos"
-            className="text-[#B3B3B3] hover:text-white text-xs transition-colors hidden sm:inline"
-          >
-            À propos
-          </Link>
           <button
             onClick={open}
             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/40 hover:text-white/70 text-xs transition-all"
