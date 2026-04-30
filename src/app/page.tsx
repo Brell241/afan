@@ -7,6 +7,7 @@ import { artists, albums, tracks } from '@/db/schema';
 import { count } from 'drizzle-orm';
 import { HomeArtistList } from '@/components/HomeArtistList';
 import { HomeNav } from '@/components/HomeNav';
+import { AdminPanel } from '@/components/AdminPanel';
 
 export default async function HomePage() {
   let artistList: { id: string; name: string; slug: string; bio: string | null; photo_url: string | null; avatar_url: string | null }[] = [];
@@ -107,6 +108,9 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* ── ADMIN (dev only) ── */}
+      {process.env.NODE_ENV === 'development' && <AdminPanel />}
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-white/5 px-6 py-6 max-w-7xl mx-auto flex items-center justify-between">

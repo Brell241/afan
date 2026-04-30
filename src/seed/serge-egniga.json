@@ -1,0 +1,19 @@
+{
+  "artist_name": "Serge Egniga",
+  "artist_slug": "serge-egniga",
+  "bio": "",
+  "born_year": null,
+  "death_year": null,
+  "albums": [
+    {
+      "title": "Principales œuvres",
+      "year": 2000,
+      "slug": "principales-oeuvres",
+      "format": "Compilation YouTube",
+      "label": "",
+      "genre": "",
+      "image_url": "https://i.ytimg.com/vi/taxvDpNTC_Q/hqdefault.jpg",
+      "track_count": 12
+    }
+  ]
+}

@@ -54,18 +54,28 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
   const [artist] = await db.select().from(artists).where(eq(artists.slug, slug));
   if (!artist) notFound();
 
-  const artistAlbums = await db.select().from(albums).where(eq(albums.artist_id, artist.id));
+  let artistAlbums = [];
+  try {
+    artistAlbums = await db.select().from(albums).where(eq(albums.artist_id, artist.id));
+  } catch (error) {
+    console.error('Failed to fetch albums:', error);
+  }
 
   const years = artistAlbums.map((a) => a.year).filter(Boolean) as number[];
   const yearStart = years.length ? Math.min(...years) : null;
   const yearEnd = years.length ? Math.max(...years) : null;
 
-  const related = await db
-    .select({ id: artists.id, name: artists.name, slug: artists.slug, avatar_url: artists.avatar_url, photo_url: artists.photo_url })
-    .from(artists)
-    .where(ne(artists.id, artist.id))
-    .orderBy(sql`RANDOM()`)
-    .limit(3);
+  let related = [];
+  try {
+    related = await db
+      .select({ id: artists.id, name: artists.name, slug: artists.slug, avatar_url: artists.avatar_url, photo_url: artists.photo_url })
+      .from(artists)
+      .where(ne(artists.id, artist.id))
+      .orderBy(sql`RANDOM()`)
+      .limit(3);
+  } catch (error) {
+    console.error('Failed to fetch related artists:', error);
+  }
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">

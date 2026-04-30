@@ -1,0 +1,29 @@
+{
+  "artist_name": "Ndong Mboula",
+  "artist_slug": "ndong-mboula",
+  "bio": "Né le 1er janvier 1955 dans la province du Woleu-Ntem, Ndong Mboula est bien plus qu'un simple musicien gabonais : c'est une mémoire vivante de la musique du pays. Sa voix, imprégnée des rythmes traditionnels du nord du Gabon, a traversé les décennies pour devenir un pilier de l'identité culturelle locale. Considéré comme l'un des doyens de la scène musicale gabonaise, il a su marier les sonorités ancestrales avec une modernité discrète mais efficace.\n\nSon titre emblématique *Etouk Nzom*, sorti en 2006, a marqué un tournant en popularisant un style à la fois enraciné et universel. Puis, en 202…",
+  "born_year": 1955,
+  "death_year": null,
+  "albums": [
+    {
+      "title": "Etouk Nzom",
+      "year": 2007,
+      "slug": "etouk-nzom",
+      "format": "Compilation YouTube",
+      "label": "",
+      "genre": "Folk-Pop Fang / Musique traditionnelle",
+      "image_url": "https://i.ytimg.com/vi/OT8KtLJNGsE/hqdefault.jpg",
+      "track_count": 17
+    },
+    {
+      "title": "Monsieur le Roi",
+      "year": 2020,
+      "slug": "monsieur-le-roi",
+      "format": "Album",
+      "label": "",
+      "genre": "Folk-Pop Fang / Musique traditionnelle",
+      "image_url": "https://i.ytimg.com/vi/QIQhaT75MLg/hqdefault.jpg",
+      "track_count": 7
+    }
+  ]
+}

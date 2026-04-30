@@ -1,0 +1,19 @@
+{
+  "artist_name": "Sima Mboula",
+  "artist_slug": "sima-mboula",
+  "bio": "Niché au cœur des forêts verdoyantes du nord du Gabon, dans la ville d’Oyem, un enfant voit le jour en 1964. Ce garçon, prénommé Sima Mboula, grandit bercé par les rythmes ancestraux et les chants de sa terre natale. Très tôt, sa voix puissante et son amour pour les traditions orales le distinguent, faisant de lui un gardien naturel de la mémoire musicale de son peuple.\n\nAdulte, Sima Mboula devient bien plus qu’un simple interprète : il est un passeur de cultures. Sa musique, enracinée dans les sonorités traditionnelles gabonaises, résonne comme un pont entre les générations. Chaque note qu’il…",
+  "born_year": 1964,
+  "death_year": null,
+  "albums": [
+    {
+      "title": "Principales œuvres",
+      "year": 2000,
+      "slug": "principales-oeuvres",
+      "format": "Compilation YouTube",
+      "label": "",
+      "genre": "Musique gabonaise / Traditionnel / Folk",
+      "image_url": "https://res.cloudinary.com/ddymfjzpi/image/upload/v1777583571/afan/albums/principales-oeuvres.jpg",
+      "track_count": 19
+    }
+  ]
+}

@@ -9,6 +9,11 @@ Usage normal (Discogs + Wikipedia + YouTube) :
 Usage depuis une chaîne YouTube (artiste sans données Discogs) :
     python scripts/research_seed.py "André Pépé Nzé" andre-pepe-nze --yt-channel @APN245
 
+Options avancées :
+    --images         Chercher les pochettes (Discogs thumb + YouTube fallback)
+    --cloudinary     Upload les pochettes vers Cloudinary (implique --images)
+    --deepseek       Reformuler la bio + extraire les genres via DeepSeek
+
 Sources: Wikipedia (bio) + Discogs (discographie + tracklists) + YouTube (URLs vidéo / chaîne)
 """
 
@@ -18,9 +23,31 @@ import time
 import unicodedata
 import argparse
 import urllib.parse
+import os
+import tempfile
 from pathlib import Path
 
 import requests
+
+# ---------------------------------------------------------------------------
+# Chargement des variables d'environnement (.env.local)
+# ---------------------------------------------------------------------------
+
+def _load_env_local() -> dict[str, str]:
+    env: dict[str, str] = {}
+    env_path = Path(__file__).parent.parent / ".env.local"
+    if not env_path.exists():
+        return env
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        env[key.strip()] = value.strip().strip('"').strip("'")
+    return env
+
+ENV = _load_env_local()
+
 
 # ---------------------------------------------------------------------------
 # Utilitaires
@@ -69,6 +96,80 @@ def fetch_wikipedia_bio(artist_name: str) -> dict:
     return {"bio": "", "born_year": None, "death_year": None}
 
 
+def fetch_wikipedia_wikitext(artist_name: str) -> str:
+    """Récupère le wikitext complet de la page Wikipedia (fr puis en)."""
+    encoded = urllib.parse.quote(artist_name.replace(" ", "_"))
+    params = {
+        "action": "query", "prop": "revisions", "rvprop": "content",
+        "titles": encoded, "format": "json", "rvslots": "main",
+    }
+    for lang in ["fr", "en"]:
+        try:
+            r = requests.get(f"https://{lang}.wikipedia.org/w/api.php",
+                             headers=BASE_HEADERS, params=params, timeout=10)
+            if r.status_code != 200:
+                continue
+            pages = r.json().get("query", {}).get("pages", {})
+            pid = list(pages.keys())[0]
+            if pid == "-1":
+                continue
+            content = (pages[pid].get("revisions") or [{}])[0] \
+                        .get("slots", {}).get("main", {}).get("*", "")
+            if content:
+                return content
+        except Exception as e:
+            print(f"  ⚠ Wikipedia wikitext : {e}")
+    return ""
+
+
+def parse_wikipedia_discography(wikitext: str, artist_name: str) -> list[dict]:
+    """Extrait la discographie depuis le wikitext Wikipedia."""
+    disc_m = re.search(
+        r"==\s*[Dd]iscograph[^\n=]*==(.+?)(?:==\s*[^=]|$)",
+        wikitext, re.DOTALL
+    )
+    if not disc_m:
+        print("  ✗ Wikipedia : section Discographie introuvable")
+        return []
+
+    section = disc_m.group(1)
+    seen_titles: set[str] = set()
+    entries: list[tuple[str, int]] = []
+
+    # Plusieurs formats wikitext : ''Titre'' (an) | [[Titre]] (an) | Titre (an)
+    for pattern in [
+        r"\*\s*'{2,3}([^'\n]+?)'{2,3}\s*\((\d{4})\)",
+        r"\*\s*\[\[([^\]|\n]+?)(?:\|[^\]\n]*)?\]\]\s*\((\d{4})\)",
+        r"\*\s*([A-ZÀ-Ü][^(\n*]{2,50}?)\s*\((\d{4})\)",
+    ]:
+        for m in re.finditer(pattern, section):
+            title = m.group(1).strip()
+            year = int(m.group(2))
+            key = slugify(title)
+            if key in seen_titles or not (1950 <= year <= 2030):
+                continue
+            seen_titles.add(key)
+            entries.append((title, year))
+
+    entries.sort(key=lambda x: x[1])
+    print(f"  ✓ Wikipedia discographie : {len(entries)} album(s) trouvé(s)")
+
+    seen_slugs: set[str] = set()
+    discography = []
+    for title, year in entries:
+        sl = slugify(title)
+        slug = sl if sl not in seen_slugs else f"{sl}-{year}"
+        seen_slugs.add(slug)
+        print(f"  → {year}  {title}")
+        discography.append({
+            "title": title, "year": year, "slug": slug,
+            "format": "Album", "label": "", "genre": "",
+            "description": "", "credits": None, "image_url": None, "tracks": [],
+        })
+
+    return discography
+
+
 def _extract_first_year(text: str) -> int | None:
     m = re.search(r"\b(19[2-9]\d|20[0-2]\d)\b", text)
     return int(m.group(1)) if m else None
@@ -92,7 +193,7 @@ def _extract_death_year(text: str) -> int | None:
 DISCOGS_SEARCH   = "https://api.discogs.com/database/search"
 DISCOGS_RELEASES = "https://api.discogs.com/artists/{id}/releases"
 DISCOGS_RELEASE  = "https://api.discogs.com/releases/{id}"
-DISCOGS_TOKEN    = None  # Optionnel : token pour lever le rate limit
+DISCOGS_TOKEN    = ENV.get("DISCOGS_TOKEN") or os.getenv("DISCOGS_TOKEN")
 
 
 def _discogs_get(url: str, params: dict | None = None) -> dict | None:
@@ -171,6 +272,11 @@ def fetch_discogs_tracklist(release_id: int) -> dict:
         if len(credits_parts) >= 8:
             break
 
+    # Image primaire (uri150 = thumbnail public 150px)
+    images = data.get("images", [])
+    primary_img = next((i for i in images if i.get("type") == "primary"), images[0] if images else None)
+    image_url = primary_img.get("uri150") if primary_img else None
+
     time.sleep(0.6)
     return {
         "tracks": tracks,
@@ -179,6 +285,7 @@ def fetch_discogs_tracklist(release_id: int) -> dict:
         "genre": genre,
         "description": description,
         "credits": " · ".join(credits_parts) or None,
+        "image_url": image_url,
     }
 
 
@@ -211,8 +318,12 @@ def build_discography_from_discogs(artist_name: str, artist_id: int) -> list[dic
             continue
         seen_slugs.add(slug)
 
+        # thumb = miniature publique (150x150) présente dans la liste des releases
+        thumb = rel.get("thumb") or ""
+
         print(f"  → {year}  {title}")
         detail = fetch_discogs_tracklist(rel["id"]) if rel.get("id") else {}
+
         discography.append({
             "title": title,
             "year": year,
@@ -222,6 +333,8 @@ def build_discography_from_discogs(artist_name: str, artist_id: int) -> list[dic
             "genre": detail.get("genre") or "",
             "description": detail.get("description") or "",
             "credits": detail.get("credits"),
+            # Priorité : image haute-res du détail release > thumb de la liste
+            "image_url": detail.get("image_url") or thumb or None,
             "tracks": detail.get("tracks", []),
         })
 
@@ -256,14 +369,12 @@ def _yt_get(url: str) -> requests.Response | None:
 
 def _extract_yt_initial_data(html: str) -> dict | None:
     """Extrait le JSON ytInitialData depuis une page YouTube."""
-    # Pattern fiable : YouTube écrit toujours `var ytInitialData = {...};</script>`
     m = re.search(r'var ytInitialData = ({.*?});</script>', html, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
         except Exception:
             pass
-    # Fallback : sans le `;` exact
     m = re.search(r'ytInitialData\s*=\s*({.+?});\s*</script>', html, re.DOTALL)
     if m:
         try:
@@ -293,7 +404,6 @@ def _extract_videos_from_yt_data(data: dict) -> list[dict]:
     videos = []
     seen_ids: set[str] = set()
 
-    # Chercher tous les videoRenderer
     for vr in _find_all(data, "videoRenderer"):
         vid_id = vr.get("videoId", "")
         if not vid_id or vid_id in seen_ids:
@@ -308,7 +418,6 @@ def _extract_videos_from_yt_data(data: dict) -> list[dict]:
             seen_ids.add(vid_id)
             videos.append({"id": vid_id, "title": title, "channel": channel})
 
-    # Chercher aussi les richItemRenderer (pages de chaînes)
     for ri in _find_all(data, "richItemRenderer"):
         vr = ri.get("content", {}).get("videoRenderer", {})
         vid_id = vr.get("videoId", "")
@@ -360,6 +469,23 @@ def search_youtube_url(query: str) -> str | None:
     return None
 
 
+def fetch_yt_thumbnail(youtube_url: str) -> str | None:
+    """Retourne l'URL de la miniature HD d'une vidéo YouTube (publique)."""
+    m = re.search(r"v=([A-Za-z0-9_\-]{11})", youtube_url)
+    if not m:
+        return None
+    vid_id = m.group(1)
+    for quality in ("maxresdefault", "hqdefault", "mqdefault"):
+        thumb_url = f"https://i.ytimg.com/vi/{vid_id}/{quality}.jpg"
+        try:
+            r = requests.head(thumb_url, timeout=6)
+            if r.status_code == 200:
+                return thumb_url
+        except Exception:
+            pass
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Extraction de titres depuis les vidéos YouTube
 # ---------------------------------------------------------------------------
@@ -373,23 +499,19 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
     """
     artist_parts = {slugify(p) for p in artist_name.split() if len(p) > 2}
 
-    # Cas 1 : hashtag de chanson (#MotsCollés ou #motCollé)
     hashtags = re.findall(r"#([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ']+)", raw_title)
     song_hashtags = [
         h for h in hashtags
         if slugify(h) not in artist_parts
         and len(h) > 2
-        and "." not in h                        # exclure "A.PepeNze"
-        and not re.match(r"^[A-Z][a-z]$", h)   # exclure initiales courtes
+        and "." not in h
+        and not re.match(r"^[A-Z][a-z]$", h)
     ]
     if song_hashtags:
-        # Séparer le CamelCase/camelCase : "AwouMawou" → "Awou Mawou", "nkoumElone" → "nkoum Elone"
         title = re.sub(r"(?<=[a-zÀ-ÿ])(?=[A-ZÀ-Ü])", " ", song_hashtags[0])
-        # Capitaliser le premier mot
         title = title.strip()
         return title[0].upper() + title[1:]
 
-    # Cas 2 : "Artiste - SongTitle (…)" → prendre ce qui est après le tiret
     artist_prefix = re.escape(artist_name[:6])
     m = re.match(
         rf"^(?:{artist_prefix}[^–—\-]*?)\s*[-–—]\s*(.+?)(?:\s*[\(\[].*)?$",
@@ -402,7 +524,6 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
             title = title.capitalize()
         return title
 
-    # Cas 3 : "TITRE - Artiste (…)" → prendre ce qui est avant le tiret
     m = re.match(
         rf"^(.+?)\s*[-–—]\s*(?:{artist_prefix}|[A-Z]{{2,}})",
         raw_title, re.IGNORECASE
@@ -414,7 +535,6 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
             title = title.capitalize()
         return title
 
-    # Cas 4 : nettoyage générique
     cleaned = re.sub(re.escape(artist_name), "", raw_title, flags=re.IGNORECASE)
     cleaned = re.sub(
         r"\b(?:clip|officiel|official|version|feat|ft\.?|live|lyric|audio|hd|hq|sous.titr[eé])\b",
@@ -425,7 +545,6 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
     return cleaned if len(cleaned) > 2 else raw_title.strip()
 
 
-# Mots-clés indiquant que la vidéo n'est pas une chanson de l'artiste
 _NON_SONG_KEYWORDS = re.compile(
     r"\b(?:oligui|nguema|dialogue\s+national|prestation|conference|"
     r"interview|emission|journal|tv|feat\.|featuring|remix|dj\s|mix\b)\b",
@@ -436,10 +555,8 @@ _NON_SONG_KEYWORDS = re.compile(
 def _is_song_video(video: dict, artist_name: str) -> bool:
     """Retourne False si la vidéo est clairement une non-chanson."""
     title = video.get("title", "")
-    # Exclure si le titre contient des mots-clés non-musicaux
     if _NON_SONG_KEYWORDS.search(title):
         return False
-    # Exclure si le titre ne contient aucune référence à l'artiste ET ne vient pas de sa chaîne
     artist_short = artist_name.split()[0][:4].lower()
     channel = video.get("channel", "").lower()
     if not re.search(re.escape(artist_short), title, re.IGNORECASE) and artist_short not in channel:
@@ -452,16 +569,13 @@ def build_discography_from_youtube(channel_handle: str, artist_name: str) -> lis
     Construit une discographie depuis une chaîne YouTube.
     Chaque vidéo devient un track dans un album unique 'Principales œuvres'.
     """
-    # 1. Vidéos de la chaîne officielle
     original_channel_videos = fetch_channel_videos(channel_handle)
     channel_videos = list(original_channel_videos)
 
-    # 2. Compléter avec une recherche YouTube pour trouver les clips d'autres chaînes
     print(f"\n  Recherche clips supplémentaires...")
     search_vids = search_youtube_videos(f"{artist_name} clip officiel", max_results=20)
     time.sleep(0.5)
 
-    # Fusionner : chaîne officielle en priorité
     seen_ids = {v["id"] for v in channel_videos}
     seen_titles = {slugify(_extract_song_title_from_video(v["title"], artist_name)) for v in channel_videos}
 
@@ -478,9 +592,6 @@ def build_discography_from_youtube(channel_handle: str, artist_name: str) -> lis
         seen_titles.add(title_key)
         channel_videos.append(v)
 
-    # 3. Construire les tracks
-    #    - vidéos de la chaîne officielle : acceptées sans filtre (c'est la chaîne de l'artiste)
-    #    - vidéos supplémentaires (search) : filtrées
     tracks = []
     seen_song_slugs: set[str] = set()
     official_ids = {v["id"] for v in original_channel_videos}
@@ -505,41 +616,432 @@ def build_discography_from_youtube(channel_handle: str, artist_name: str) -> lis
     if not tracks:
         return []
 
-    # 4. Créer un album unique regroupant toutes les œuvres
     return [{
         "title": "Principales œuvres",
-        "year": 2000,  # année approx., à corriger manuellement
+        "year": 2000,
         "slug": "principales-oeuvres",
         "format": "Compilation YouTube",
         "label": "",
         "genre": "Folk-Pop Fang",
         "description": "",
         "credits": None,
+        "image_url": None,
         "tracks": tracks,
     }]
 
 
 # ---------------------------------------------------------------------------
-# Enrichissement YouTube pour discographie Discogs existante
+# GStore Music — scraping des tracklists
+# ---------------------------------------------------------------------------
+
+GSTORE_BASE = "https://gstoremusic.com"
+GSTORE_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Chrome/124.0.0.0 Safari/537.36"}
+
+
+def fetch_gstore_artist(artist_name: str) -> tuple[str, str] | None:
+    """Cherche l'artiste sur GStore, retourne (id, slug) ou None."""
+    try:
+        r = requests.post(
+            GSTORE_BASE + "/",
+            data={"search": artist_name, "recherche": ""},
+            headers=GSTORE_HEADERS, timeout=12,
+        )
+        if r.status_code == 200:
+            m = re.search(r'href="/artistes/(\d+)-([^"]+)"', r.text)
+            if m:
+                print(f"  ✓ GStore : {m.group(2)} (id={m.group(1)})")
+                return m.group(1), m.group(2)
+    except Exception as e:
+        print(f"  ⚠ GStore : {e}")
+    print("  ✗ GStore : artiste introuvable")
+    return None
+
+
+def fetch_gstore_album_urls(gstore_id: str, gstore_slug: str) -> list[dict]:
+    """Retourne la liste des albums de l'artiste sur GStore."""
+    url = f"{GSTORE_BASE}/albums/{gstore_id}-{gstore_slug}"
+    try:
+        r = requests.get(url, headers=GSTORE_HEADERS, timeout=12)
+        if r.status_code != 200:
+            return []
+        seen: set[str] = set()
+        albums = []
+        for m in re.finditer(rf'href="(/albums/{re.escape(gstore_slug)}/\d+-[^"]+)"', r.text):
+            path = m.group(1)
+            if path in seen:
+                continue
+            seen.add(path)
+            nearby = r.text[r.text.find(path): r.text.find(path) + 400]
+            title_m = re.search(r'<h3[^>]*>\s*<a[^>]*>([^<]+)</a>', nearby)
+            albums.append({
+                "url": GSTORE_BASE + path,
+                "title": title_m.group(1).strip() if title_m else "",
+            })
+        print(f"  ✓ GStore : {len(albums)} album(s) trouvé(s)")
+        return albums
+    except Exception as e:
+        print(f"  ⚠ GStore albums : {e}")
+        return []
+
+
+def fetch_gstore_tracklist(album_url: str) -> list[dict]:
+    """Scrape la tracklist d'une page album GStore."""
+    try:
+        r = requests.get(album_url, headers=GSTORE_HEADERS, timeout=12)
+        if r.status_code != 200:
+            return []
+        tracks = []
+        for row in re.finditer(r'<tr>([\s\S]*?)</tr>', r.text):
+            row_text = row.group(1)
+            if 'colspan' in row_text or 'song_list' in row_text or '<th>' in row_text:
+                continue
+            # Supprimer les commentaires HTML avant d'extraire les cellules
+            row_clean = re.sub(r'<!--[\s\S]*?-->', '', row_text)
+            cells = re.findall(r'<td[^>]*>([\s\S]*?)</td>', row_clean)
+            if len(cells) < 3:
+                continue
+            num_s   = re.sub(r'<[^>]+>', '', cells[0]).strip()
+            title_s = re.sub(r'<[^>]+>', '', cells[1]).strip()
+            # La durée (HH:MM:SS) peut être à n'importe quel index selon le HTML
+            dur_s = next(
+                (re.sub(r'<[^>]+>', '', c).strip()
+                 for c in cells
+                 if re.match(r'\d{2}:\d{2}:\d{2}', re.sub(r'<[^>]+>', '', c).strip())),
+                None,
+            )
+            if not num_s.isdigit() or not title_s or not dur_s:
+                continue
+            tracks.append({"title": title_s, "track_number": int(num_s),
+                           "duration": dur_s, "youtube_url": None})
+        if tracks:
+            print(f"  ✓ GStore tracklist : {len(tracks)} titre(s)")
+        return tracks
+    except Exception as e:
+        print(f"  ⚠ GStore tracklist : {e}")
+        return []
+
+
+def _videos_to_tracks(videos: list[dict], artist_name: str, strict: bool = True) -> list[dict]:
+    """
+    Convertit une liste de vidéos YouTube en tracks.
+    strict=False : n'exige pas le nom de l'artiste dans le titre/chaîne (pour les recherches ciblées).
+    """
+    tracks: list[dict] = []
+    seen: set[str] = set()
+    for v in videos:
+        if strict and not _is_song_video(v, artist_name):
+            continue
+        if not strict and _NON_SONG_KEYWORDS.search(v.get("title", "")):
+            continue
+        title = _extract_song_title_from_video(v["title"], artist_name)
+        s = slugify(title)
+        if s in seen or len(s) < 2:
+            continue
+        seen.add(s)
+        tracks.append({
+            "title": title,
+            "track_number": len(tracks) + 1,
+            "youtube_url": f"https://www.youtube.com/watch?v={v['id']}",
+        })
+    return tracks
+
+
+def build_youtube_compilation(artist_name: str) -> list[dict]:
+    """
+    Dernier recours : recherche YouTube générale sur l'artiste
+    et construit un album 'Principales œuvres'.
+    """
+    tracks: list[dict] = []
+    for query in [
+        f"{artist_name} clip officiel",
+        f"{artist_name} musique",
+        artist_name,
+    ]:
+        if tracks:
+            break
+        print(f"  → YouTube : {query}...")
+        vids = search_youtube_videos(query, max_results=30)
+        time.sleep(0.5)
+        # Mode non-strict : la recherche est déjà ciblée sur l'artiste
+        tracks = _videos_to_tracks(vids, artist_name, strict=False)
+
+    if not tracks:
+        print("  ✗ Aucune vidéo trouvée")
+        return []
+
+    print(f"  ✓ {len(tracks)} titre(s) récupérés")
+    return [{
+        "title": "Principales œuvres",
+        "year": 2000,
+        "slug": "principales-oeuvres",
+        "format": "Compilation YouTube",
+        "label": "",
+        "genre": "",
+        "description": "",
+        "credits": None,
+        "image_url": None,
+        "tracks": tracks,
+    }]
+
+
+def enrich_albums_from_gstore_and_youtube(discography: list[dict], artist_name: str) -> None:
+    """
+    Pour les albums sans tracklist (typiquement issus de Wikipedia) :
+    1. Cherche la tracklist sur GStore Music
+    2. Sinon, recherche YouTube ciblée sur l'album
+    3. Dernier recours : recherche YouTube générale → album "Principales œuvres"
+    """
+    print("\n📦 GStore Music — recherche des tracklists...")
+    gstore_info = fetch_gstore_artist(artist_name)
+    gstore_albums: list[dict] = []
+    if gstore_info:
+        gstore_albums = fetch_gstore_album_urls(*gstore_info)
+        time.sleep(0.5)
+
+    for album in discography:
+        if album.get("tracks"):
+            continue  # déjà renseigné (Discogs)
+
+        # 1. GStore
+        gstore_match = next(
+            (ga for ga in gstore_albums
+             if slugify(ga["title"]) == slugify(album["title"])
+             or slugify(album["title"]) in slugify(ga["title"])),
+            None,
+        )
+        if gstore_match:
+            print(f"  → {album['title']} sur GStore...")
+            tracks = fetch_gstore_tracklist(gstore_match["url"])
+            time.sleep(0.5)
+            if tracks:
+                album["tracks"] = tracks
+                continue
+
+        # 2. YouTube ciblé sur l'album (mode non-strict : la requête est déjà ciblée)
+        print(f"  → YouTube : {artist_name} – {album['title']}...")
+        vids = search_youtube_videos(f"{artist_name} {album['title']}", max_results=20)
+        time.sleep(0.5)
+        tracks = _videos_to_tracks(vids, artist_name, strict=False)
+        if tracks:
+            album["tracks"] = tracks
+            album["format"] = "Compilation YouTube"
+            continue
+
+        # 3. Recherche générale → Principales œuvres
+        print(f"  → YouTube (général) : {artist_name}...")
+        vids = search_youtube_videos(f"{artist_name} clip officiel", max_results=30)
+        time.sleep(0.5)
+        tracks = _videos_to_tracks(vids, artist_name, strict=False)
+        if tracks:
+            album["title"]  = "Principales œuvres"
+            album["slug"]   = "principales-oeuvres"
+            album["format"] = "Compilation YouTube"
+            album["tracks"] = tracks
+
+
+# ---------------------------------------------------------------------------
+# Enrichissement YouTube des tracks existants (URLs manquantes)
 # ---------------------------------------------------------------------------
 
 def enrich_with_youtube(artist_name: str, discography: list[dict]) -> None:
-    """Cherche une URL YouTube pour chaque track sans URL."""
-    total = sum(len(a["tracks"]) for a in discography)
-    done = 0
-    print(f"\n  Recherche YouTube ({total} tracks)...")
+    """Cherche une URL YouTube pour chaque track qui n'en a pas encore."""
+    to_enrich = [
+        (album, track)
+        for album in discography
+        for track in album["tracks"]
+        if not track.get("youtube_url")
+    ]
+    if not to_enrich:
+        return
+    total = len(to_enrich)
+    print(f"\n  Recherche YouTube ({total} tracks sans URL)...")
+    for done, (_, track) in enumerate(to_enrich, 1):
+        query = f'{artist_name} {track["title"]}'
+        print(f"  [{done}/{total}] {track['title']}", end="", flush=True)
+        url = search_youtube_url(query)
+        if url:
+            track["youtube_url"] = url
+            print(f" → {url.split('v=')[-1]}")
+        else:
+            print(" → null")
+        time.sleep(0.8)
+
+
+# ---------------------------------------------------------------------------
+# Images — résolution des pochettes
+# ---------------------------------------------------------------------------
+
+def process_album_images(discography: list[dict], use_cloudinary: bool) -> None:
+    """
+    Pour chaque album :
+    1. Garde l'image Discogs si présente (déjà dans album["image_url"])
+    2. Fallback : miniature YouTube de la première piste avec une URL
+    3. Si --cloudinary : upload vers Cloudinary pour obtenir une version 600×600 WebP
+    """
+    print(f"\n🖼  Résolution des pochettes ({len(discography)} albums)...")
     for album in discography:
-        for track in album["tracks"]:
-            done += 1
-            query = f'{artist_name} {track["title"]}'
-            print(f"  [{done}/{total}] {track['title']}", end="", flush=True)
-            url = search_youtube_url(query)
-            if url:
-                track["youtube_url"] = url
-                print(f" → {url.split('v=')[-1]}")
-            else:
-                print(" → null")
-            time.sleep(0.8)
+        raw_url = album.get("image_url")
+
+        if not raw_url:
+            for track in album.get("tracks", []):
+                yt_url = track.get("youtube_url")
+                if yt_url:
+                    raw_url = fetch_yt_thumbnail(yt_url)
+                    if raw_url:
+                        print(f"  ↩ Thumb YouTube → {album['title'][:40]}")
+                        break
+
+        if not raw_url:
+            print(f"  ✗ Aucune image : {album['title'][:40]}")
+            album["image_url"] = None
+            continue
+
+        if use_cloudinary:
+            cl_url = upload_to_cloudinary(raw_url, album["slug"])
+            album["image_url"] = cl_url or raw_url
+        else:
+            album["image_url"] = raw_url
+            print(f"  ✓ Image : {album['title'][:40]}")
+
+
+def upload_to_cloudinary(image_url: str, public_id: str) -> str | None:
+    """Upload une image vers Cloudinary (600×600 WebP, crop centré)."""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+    except ImportError:
+        print("  ⚠ cloudinary non installé — pip install cloudinary")
+        return None
+
+    cloud_name = ENV.get("CLOUDINARY_CLOUD_NAME")
+    api_key    = ENV.get("CLOUDINARY_API_KEY")
+    api_secret = ENV.get("CLOUDINARY_API_SECRET")
+
+    if not all([cloud_name, api_key, api_secret]):
+        print("  ⚠ Credentials Cloudinary manquants dans .env.local")
+        return None
+
+    cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret)
+
+    # Discogs images nécessitent parfois un download préalable (auth)
+    file_to_upload: str | bytes = image_url
+    tmp_path: str | None = None
+
+    if "discogs.com" in image_url and DISCOGS_TOKEN:
+        tmp_path = _download_to_tmp(image_url)
+        if tmp_path:
+            file_to_upload = tmp_path
+
+    try:
+        result = cloudinary.uploader.upload(
+            file_to_upload,
+            public_id=f"afan/albums/{public_id}",
+            overwrite=True,
+            resource_type="image",
+            transformation=[
+                {"width": 600, "height": 600, "crop": "fill", "gravity": "center"},
+                {"format": "webp", "quality": "auto"},
+            ],
+        )
+        url = result.get("secure_url", "")
+        print(f"  ✓ Cloudinary : {url}")
+        return url
+    except Exception as e:
+        print(f"  ⚠ Cloudinary : {e}")
+        return None
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def _download_to_tmp(url: str) -> str | None:
+    """Télécharge une image dans un fichier temporaire, retourne le chemin."""
+    headers = dict(BASE_HEADERS)
+    if DISCOGS_TOKEN:
+        headers["Authorization"] = f"Discogs token={DISCOGS_TOKEN}"
+    try:
+        r = requests.get(url, headers=headers, timeout=20, stream=True)
+        if r.status_code == 200:
+            suffix = ".jpg" if "jpeg" in r.headers.get("content-type", "") else ".jpg"
+            fd, path = tempfile.mkstemp(suffix=suffix)
+            with os.fdopen(fd, "wb") as f:
+                for chunk in r.iter_content(8192):
+                    f.write(chunk)
+            return path
+        print(f"  ⚠ Download image HTTP {r.status_code}")
+    except Exception as e:
+        print(f"  ⚠ Download image : {e}")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# DeepSeek — reformulation bio + extraction genres
+# ---------------------------------------------------------------------------
+
+DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+
+
+def _deepseek_call(prompt: str, api_key: str, system: str = "", max_tokens: int = 600) -> str | None:
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    try:
+        r = requests.post(
+            DEEPSEEK_API_URL,
+            json={"model": "deepseek-chat", "messages": messages, "max_tokens": max_tokens, "temperature": 0.7},
+            headers=headers,
+            timeout=30,
+        )
+        if r.status_code == 200:
+            return r.json()["choices"][0]["message"]["content"].strip()
+        print(f"  ⚠ DeepSeek HTTP {r.status_code} : {r.text[:200]}")
+    except Exception as e:
+        print(f"  ⚠ DeepSeek : {e}")
+    return None
+
+
+def clean_bio_deepseek(bio: str, artist_name: str, api_key: str) -> str:
+    """Reformule la bio Wikipedia brute en texte narratif (2-3 § en français)."""
+    if not bio or not api_key:
+        return bio
+    print("  🤖 DeepSeek — Reformulation de la bio...")
+    result = _deepseek_call(
+        f"Voici la biographie Wikipedia de {artist_name} :\n\n{bio}\n\n"
+        "Réécris-la en 2-3 paragraphes courts et captivants. "
+        "Réponds uniquement avec le texte de la biographie.",
+        api_key,
+        system=(
+            "Tu es un rédacteur spécialisé dans la musique d'Afrique centrale. "
+            "Transforme les textes Wikipedia bruts en biographies narratives et engageantes, "
+            "en français, en conservant tous les faits essentiels."
+        ),
+        max_tokens=600,
+    )
+    if result:
+        print(f"  ✓ Bio reformulée : {len(result)} car.")
+        return result
+    return bio
+
+
+def generate_genre_tags_deepseek(bio: str, api_key: str) -> str:
+    """Extrait 2-4 mots-clés de genres musicaux précis depuis la bio."""
+    if not bio or not api_key:
+        return ""
+    print("  🤖 DeepSeek — Extraction des genres...")
+    result = _deepseek_call(
+        f"À partir de cette biographie, extrais les genres musicaux précis de cet artiste :\n{bio[:600]}",
+        api_key,
+        system=(
+            "Tu es un expert en musique africaine. "
+            "Réponds UNIQUEMENT avec 2-4 tags de genres séparés par ' / ' "
+            "(ex: 'Makossa / Afrobeat' ou 'Folk-Pop Fang / Musique traditionnelle'). "
+            "Pas d'autre texte."
+        ),
+        max_tokens=60,
+    )
+    return result or ""
 
 
 # ---------------------------------------------------------------------------
@@ -599,7 +1101,7 @@ export async function seed() {{
         genre: disc.genre,
         description: disc.description,
         credits: disc.credits ?? null,
-        image_url: savedImageUrls[disc.slug] ?? null,
+        image_url: savedImageUrls[disc.slug] ?? disc.image_url ?? null,
       }})
       .returning();
 
@@ -663,6 +1165,7 @@ def format_album(album: dict) -> str:
         f"    genre: {json.dumps(album.get('genre', ''), ensure_ascii=False)},",
         f"    description: {json.dumps(desc, ensure_ascii=False)},",
         f"    credits: {_ts_str(album.get('credits'))},",
+        f"    image_url: {_ts_str(album.get('image_url'))},",
         f"    tracks: {tracks_block},",
         "  },",
     ])
@@ -700,13 +1203,29 @@ def main():
     parser.add_argument("artist_slug", help='Slug DB, ex: annie-flore-batchiellilys')
     parser.add_argument("--filename", help="Nom du fichier .ts sans extension (défaut: artist_slug)")
     parser.add_argument("--yt-channel", metavar="HANDLE",
-                        help="Handle de la chaîne YouTube officielle (ex: @APN245) — utilisé quand Discogs n'a pas de données")
+                        help="Handle de la chaîne YouTube officielle (ex: @APN245)")
     parser.add_argument("--no-youtube", action="store_true", help="Désactiver la recherche YouTube")
+    parser.add_argument("--images", action="store_true",
+                        help="Chercher les pochettes (Discogs thumb + YouTube fallback)")
+    parser.add_argument("--cloudinary", action="store_true",
+                        help="Uploader les pochettes vers Cloudinary en 600×600 WebP (implique --images)")
+    parser.add_argument("--deepseek", action="store_true",
+                        help="Reformuler la bio et extraire les genres via DeepSeek")
+    parser.add_argument("--deepseek-key", metavar="KEY",
+                        help="Clé API DeepSeek (sinon lu depuis DEEPSEEK_API_KEY dans .env.local)")
     args = parser.parse_args()
 
     artist_name = args.artist_name
     artist_slug = args.artist_slug
-    filename = args.filename or artist_slug
+    filename    = args.filename or artist_slug
+    use_images      = args.images or args.cloudinary
+    use_cloudinary  = args.cloudinary
+    use_deepseek    = args.deepseek
+
+    deepseek_key = args.deepseek_key or ENV.get("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+    if use_deepseek and not deepseek_key:
+        print("⚠  --deepseek activé mais DEEPSEEK_API_KEY introuvable — DeepSeek désactivé")
+        use_deepseek = False
 
     print(f"\n{'='*60}")
     print(f"  Artiste : {artist_name}")
@@ -714,6 +1233,12 @@ def main():
     print(f"  Fichier : src/seed/{filename}.ts")
     if args.yt_channel:
         print(f"  Chaîne  : {args.yt_channel}")
+    flags = []
+    if use_images:    flags.append("images")
+    if use_cloudinary: flags.append("cloudinary")
+    if use_deepseek:  flags.append("deepseek")
+    if flags:
+        print(f"  Options : {', '.join(flags)}")
     print(f"{'='*60}\n")
 
     # 1. Wikipedia
@@ -734,16 +1259,47 @@ def main():
             if wiki["bio"]:
                 print(f"  ✓ Bio Discogs : {len(wiki['bio'])} car.")
 
-    # 3. Si pas de discographie Discogs → utiliser la chaîne YouTube
-    if not discography and args.yt_channel and not args.no_youtube:
-        print(f"\n📺 Construction depuis la chaîne YouTube {args.yt_channel}...")
-        discography = build_discography_from_youtube(args.yt_channel, artist_name)
+    # 3. Fallback : discographie Wikipedia si Discogs n'a rien
+    if not discography:
+        print("\n📖 Discographie Wikipedia (fallback)...")
+        wikitext = fetch_wikipedia_wikitext(artist_name)
+        if wikitext:
+            discography = parse_wikipedia_discography(wikitext, artist_name)
 
-    # 4. Enrichir avec YouTube si discographie Discogs existante
+    # 4. Fallback ultime YouTube
+    if not discography and not args.no_youtube:
+        if args.yt_channel:
+            print(f"\n📺 Construction depuis la chaîne YouTube {args.yt_channel}...")
+            discography = build_discography_from_youtube(args.yt_channel, artist_name)
+        else:
+            print(f"\n📺 Aucune source structurée — compilation YouTube générale...")
+            discography = build_youtube_compilation(artist_name)
+
+    # 5a. Enrichissement des tracklists + URLs YouTube
     elif discography and not args.no_youtube:
+        # Albums sans tracklist (Wikipedia) → GStore puis YouTube
+        if any(not a.get("tracks") for a in discography):
+            enrich_albums_from_gstore_and_youtube(discography, artist_name)
+        # Tous les tracks sans URL YouTube
         enrich_with_youtube(artist_name, discography)
 
-    # 5. Génération TypeScript
+    # 5b. Pochettes
+    if use_images and discography:
+        process_album_images(discography, use_cloudinary=use_cloudinary)
+
+    # 5c. DeepSeek
+    if use_deepseek and deepseek_key:
+        print("\n🤖 DeepSeek...")
+        wiki["bio"] = clean_bio_deepseek(wiki["bio"], artist_name, deepseek_key)
+        genre_tags = generate_genre_tags_deepseek(wiki["bio"], deepseek_key)
+        if genre_tags:
+            print(f"  ✓ Genres : {genre_tags}")
+            # Injecter les tags dans les albums sans genre
+            for album in discography:
+                if not album.get("genre"):
+                    album["genre"] = genre_tags
+
+    # 6. Génération TypeScript
     print("\n📝 Génération TypeScript...")
     ts_content = generate_typescript(
         artist_name=artist_name,
@@ -754,17 +1310,42 @@ def main():
         discography=discography,
     )
 
-    # 6. Écriture
+    # 7. Écriture
     project_root = Path(__file__).parent.parent
     output_path = project_root / "src" / "seed" / f"{filename}.ts"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(ts_content, encoding="utf-8")
 
+    # Preview JSON pour l'interface admin
+    json_preview = {
+        "artist_name": artist_name,
+        "artist_slug": artist_slug,
+        "bio": wiki["bio"][:600] + ("…" if len(wiki["bio"]) > 600 else ""),
+        "born_year": wiki.get("born_year"),
+        "death_year": wiki.get("death_year"),
+        "albums": [
+            {
+                "title": a["title"],
+                "year": a["year"],
+                "slug": a["slug"],
+                "format": a.get("format", ""),
+                "label": a.get("label", ""),
+                "genre": a.get("genre", ""),
+                "image_url": a.get("image_url"),
+                "track_count": len(a.get("tracks", [])),
+            }
+            for a in discography
+        ],
+    }
+    json_path = project_root / "src" / "seed" / f"{filename}.json"
+    json_path.write_text(json.dumps(json_preview, ensure_ascii=False, indent=2), encoding="utf-8")
+
     total_tracks = sum(len(a["tracks"]) for a in discography)
-    yt_found = sum(1 for a in discography for t in a["tracks"] if t.get("youtube_url"))
+    yt_found     = sum(1 for a in discography for t in a["tracks"] if t.get("youtube_url"))
+    img_found    = sum(1 for a in discography if a.get("image_url"))
 
     print(f"\n✅ {output_path}")
-    print(f"   {len(discography)} albums · {total_tracks} tracks · {yt_found} YouTube URLs")
+    print(f"   {len(discography)} albums · {total_tracks} tracks · {yt_found} YouTube URLs · {img_found} pochettes")
     print("\n⚠  Relire et compléter les descriptions avant de lancer le seed !\n")
 
 

@@ -1,0 +1,19 @@
+{
+  "artist_name": "Evizo Stars",
+  "artist_slug": "evizo-stars",
+  "bio": "",
+  "born_year": null,
+  "death_year": null,
+  "albums": [
+    {
+      "title": "V.I.P.",
+      "year": 1996,
+      "slug": "v-i-p",
+      "format": "CD",
+      "label": "Blue Silver Distribution (50492-2)",
+      "genre": "Folk, World, & Country / African",
+      "image_url": "https://res.cloudinary.com/ddymfjzpi/image/upload/v1777583402/afan/albums/v-i-p.jpg",
+      "track_count": 10
+    }
+  ]
+}
