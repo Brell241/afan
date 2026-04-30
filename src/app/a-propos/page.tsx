@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Youtube, Music2, Heart, Shuffle, ArrowLeft } from 'lucide-react';
+import { PlayCircle, Music2, Heart, Shuffle, ArrowLeft } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'À propos — Afan | La Forêt Musicale',
@@ -66,7 +66,7 @@ export default function AProposPage() {
           <section className="border-t border-white/5 pt-12">
             <div className="flex items-start gap-6">
               <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <Youtube size={18} className="text-red-500" />
+                <PlayCircle size={18} className="text-red-500" />
               </div>
               <div>
                 <h2 className="text-white font-bold text-xl mb-4">Tout vient de YouTube</h2>
@@ -152,7 +152,7 @@ export default function AProposPage() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 bg-white/[0.06] hover:bg-white/[0.1] text-white font-bold text-sm px-6 py-3 rounded-full border border-white/10 transition-colors"
                   >
-                    <Youtube size={14} className="text-red-500" />
+                    <PlayCircle size={14} className="text-red-500" />
                     Chercher sur YouTube
                   </a>
                 </div>
