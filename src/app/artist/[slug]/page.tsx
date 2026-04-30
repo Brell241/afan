@@ -54,7 +54,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
   const [artist] = await db.select().from(artists).where(eq(artists.slug, slug));
   if (!artist) notFound();
 
-  let artistAlbums = [];
+  let artistAlbums: typeof albums.$inferSelect[] = [];
   try {
     artistAlbums = await db.select().from(albums).where(eq(albums.artist_id, artist.id));
   } catch (error) {
@@ -65,7 +65,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
   const yearStart = years.length ? Math.min(...years) : null;
   const yearEnd = years.length ? Math.max(...years) : null;
 
-  let related = [];
+  let related: { id: string; name: string; slug: string; avatar_url: string | null; photo_url: string | null }[] = [];
   try {
     related = await db
       .select({ id: artists.id, name: artists.name, slug: artists.slug, avatar_url: artists.avatar_url, photo_url: artists.photo_url })
