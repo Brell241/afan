@@ -34,21 +34,30 @@ export function AlbumNav({ artistName, artistSlug, albumTitle, heroHeight = 480 
         borderBottom: scrolled ? '1px solid rgba(255,255,255,0.05)' : '1px solid transparent',
       }}
     >
-      <div className="max-w-6xl mx-auto px-5 h-14 flex items-center gap-3">
+      <div className="max-w-6xl mx-auto px-5 h-14 flex items-center gap-2 min-w-0">
+        {/* Fil d'Ariane : afan / Artiste */}
+        <Link
+          href="/"
+          className="text-white/50 hover:text-white font-black text-base tracking-tight transition-colors shrink-0"
+        >
+          afan
+        </Link>
+        <span className="text-white/15 shrink-0">/</span>
         <Link
           href={`/artist/${artistSlug}`}
-          className="flex items-center gap-1 text-white/50 hover:text-white/90 transition-colors text-sm font-medium shrink-0"
+          className="flex items-center gap-1 text-white/40 hover:text-white/80 transition-colors text-sm shrink-0"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={14} />
           {artistName}
         </Link>
 
+        {/* Album title apparaît au scroll */}
         <div
-          className="flex items-center gap-3 min-w-0 transition-all duration-300"
-          style={{ opacity: showTitle ? 1 : 0, transform: `translateY(${showTitle ? 0 : -5}px)` }}
+          className="flex items-center gap-2 min-w-0 transition-all duration-300"
+          style={{ opacity: showTitle ? 1 : 0, transform: `translateY(${showTitle ? 0 : -4}px)` }}
         >
-          <span className="text-white/20 shrink-0">/</span>
-          <span className="text-white/85 text-sm font-medium truncate">{albumTitle}</span>
+          <span className="text-white/15 shrink-0">/</span>
+          <span className="text-white/80 text-sm font-medium truncate">{albumTitle}</span>
         </div>
       </div>
     </nav>

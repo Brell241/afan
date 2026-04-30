@@ -25,24 +25,35 @@ export function ArtistNav({ name, heroHeight = 520 }: ArtistNavProps) {
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-400"
+      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
       style={{
-        background: scrolled ? 'rgba(10,10,10,0.88)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(14px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.04)' : '1px solid transparent',
+        background: scrolled ? 'rgba(10,10,10,0.92)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(16px)' : 'none',
+        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.05)' : '1px solid transparent',
       }}
     >
-      <div className="px-6 h-14 flex items-center justify-between">
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 text-white/45 hover:text-white/85 transition-colors text-sm"
-        >
-          <ChevronLeft size={15} />
-          Retour
-        </Link>
+      <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
+        {/* Gauche : afan + retour */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="text-white/70 hover:text-white font-black text-base tracking-tight transition-colors"
+          >
+            afan
+          </Link>
+          <span className="text-white/15">/</span>
+          <Link
+            href="/"
+            className="flex items-center gap-1 text-white/40 hover:text-white/80 transition-colors text-sm"
+          >
+            <ChevronLeft size={14} />
+            Artistes
+          </Link>
+        </div>
 
+        {/* Centre : nom de l'artiste au scroll */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 transition-all duration-300"
+          className="absolute left-1/2 -translate-x-1/2 transition-all duration-300 pointer-events-none"
           style={{
             opacity: showName ? 1 : 0,
             transform: `translateX(-50%) translateY(${showName ? 0 : -6}px)`,

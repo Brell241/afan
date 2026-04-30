@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
-import { Camera } from 'lucide-react';
+import { Camera, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AlbumCoverUploadProps {
@@ -13,7 +13,8 @@ interface AlbumCoverUploadProps {
 export function AlbumCoverUpload({ albumId, imageUrl }: AlbumCoverUploadProps) {
   const [currentUrl, setCurrentUrl] = useState(imageUrl);
   const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  const inputId = `cover-upload-${albumId}`;
 
   async function handleUpload(file: File) {
     setUploading(true);
@@ -29,43 +30,77 @@ export function AlbumCoverUpload({ albumId, imageUrl }: AlbumCoverUploadProps) {
       toast.error('Erreur upload.');
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
     }
   }
 
   return (
-    <>
-      <div
-        className="relative group w-36 h-36 sm:w-44 sm:h-44 shrink-0 shadow-2xl rounded-sm overflow-hidden bg-[#282828] cursor-pointer"
-        onClick={() => inputRef.current?.click()}
+    <div className="flex flex-col items-center gap-2">
+      {/* Zone image cliquable via label */}
+      <label
+        htmlFor={inputId}
+        className="relative group w-36 h-36 sm:w-44 sm:h-44 shrink-0 shadow-2xl rounded-sm overflow-hidden bg-[#282828] cursor-pointer block"
       >
         {currentUrl ? (
-          <Image src={currentUrl} alt="Pochette" fill sizes="(max-width:640px) 144px, 176px" className="object-cover" />
+          <Image
+            src={currentUrl}
+            alt="Pochette"
+            fill
+            sizes="(max-width:640px) 144px, 176px"
+            className="object-cover"
+          />
         ) : (
           <div className="w-full h-full flex items-end p-4 bg-gradient-to-br from-[#444] to-[#1a1a1a]">
             <Camera size={32} className="text-white/15" />
           </div>
         )}
 
-        {/* Overlay upload */}
+        {/* Overlay au hover */}
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {uploading
-            ? <span className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-            : <>
-                <Camera size={24} className="text-white" />
-                <span className="text-white text-xs font-medium">Changer la pochette</span>
-              </>
-          }
+          {uploading ? (
+            <span className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+          ) : (
+            <>
+              <Camera size={24} className="text-white" />
+              <span className="text-white text-xs font-medium text-center px-2">Changer la pochette</span>
+            </>
+          )}
         </div>
-      </div>
+      </label>
+
+      {/* Bouton explicite sous la pochette */}
+      <label
+        htmlFor={inputId}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-all select-none
+          ${uploading
+            ? 'bg-white/5 text-white/30 pointer-events-none'
+            : 'bg-white/10 hover:bg-white/20 border border-white/15 text-white/70 hover:text-white'
+          }`}
+      >
+        {uploading ? (
+          <>
+            <span className="w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+            Upload en cours…
+          </>
+        ) : (
+          <>
+            <Upload size={11} />
+            Changer la pochette
+          </>
+        )}
+      </label>
 
       <input
-        ref={inputRef}
+        id={inputId}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+        disabled={uploading}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleUpload(f);
+          e.target.value = '';
+        }}
       />
-    </>
+    </div>
   );
 }
