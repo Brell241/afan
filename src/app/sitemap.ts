@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { artists, albums } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://afan-alpha.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://afan.atekbot.space';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
