@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ilike, or, eq, sql } from 'drizzle-orm';
+import { or, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { artists, albums, tracks } from '@/db/schema';
 
 export const dynamic = 'force-dynamic';
+
+// Seuil de similarité pour les fautes de frappe (pg_trgm)
+const FUZZY_THRESHOLD = 0.25;
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? '';
@@ -13,11 +16,28 @@ export async function GET(req: NextRequest) {
   const year = parseInt(q, 10);
   const isYear = !isNaN(year) && q.length === 4;
 
+  const artistMatch = sql`
+    unaccent(${artists.name}) ILIKE unaccent(${pattern})
+    OR similarity(unaccent(${artists.name}), unaccent(${q})) > ${FUZZY_THRESHOLD}
+  `;
+  const albumTitleMatch = sql`
+    unaccent(${albums.title}) ILIKE unaccent(${pattern})
+    OR similarity(unaccent(${albums.title}), unaccent(${q})) > ${FUZZY_THRESHOLD}
+  `;
+  const albumMetaMatch = sql`
+    unaccent(${albums.genre}) ILIKE unaccent(${pattern})
+    OR unaccent(${albums.label}) ILIKE unaccent(${pattern})
+  `;
+  const trackMatch = sql`
+    unaccent(${tracks.title}) ILIKE unaccent(${pattern})
+    OR similarity(unaccent(${tracks.title}), unaccent(${q})) > ${FUZZY_THRESHOLD}
+  `;
+
   const [artistRows, albumRows, trackRows] = await Promise.all([
     db
       .select({ id: artists.id, name: artists.name, slug: artists.slug, avatar_url: artists.avatar_url, photo_url: artists.photo_url })
       .from(artists)
-      .where(ilike(artists.name, pattern))
+      .where(artistMatch)
       .limit(5),
 
     db
@@ -34,14 +54,14 @@ export async function GET(req: NextRequest) {
       .where(
         isYear
           ? eq(albums.year, year)
-          : or(ilike(albums.title, pattern), ilike(albums.genre, pattern), ilike(albums.label, pattern))
+          : or(albumTitleMatch, albumMetaMatch)
       )
       .limit(8),
 
     db
       .select({ id: tracks.id, title: tracks.title, youtube_url: tracks.youtube_url, album_id: tracks.album_id })
       .from(tracks)
-      .where(ilike(tracks.title, pattern))
+      .where(trackMatch)
       .limit(8),
   ]);
 

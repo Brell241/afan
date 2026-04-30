@@ -111,7 +111,10 @@ export default async function HomePage() {
       {/* ── FOOTER ── */}
       <footer className="border-t border-white/5 px-6 py-6 max-w-7xl mx-auto flex items-center justify-between">
         <span className="text-[#B3B3B3] text-xs font-bold">afan</span>
-        <span className="text-[#535353] text-xs">open-source · Gabon · 2025</span>
+        <div className="flex items-center gap-4">
+          <Link href="/a-propos" className="text-[#535353] hover:text-[#B3B3B3] text-xs transition-colors">À propos</Link>
+          <span className="text-[#535353] text-xs">open-source · Gabon · 2025</span>
+        </div>
       </footer>
     </div>
   );
