@@ -16,21 +16,19 @@ export async function GET(req: NextRequest) {
   const year = parseInt(q, 10);
   const isYear = !isNaN(year) && q.length === 4;
 
+  // Fallback: recherche simple sans unaccent (plus fiable)
   const artistMatch = sql`
-    unaccent(${artists.name}) ILIKE unaccent(${pattern})
-    OR similarity(unaccent(${artists.name}), unaccent(${q})) > ${FUZZY_THRESHOLD}
+    ${artists.name} ILIKE ${pattern}
   `;
   const albumTitleMatch = sql`
-    unaccent(${albums.title}) ILIKE unaccent(${pattern})
-    OR similarity(unaccent(${albums.title}), unaccent(${q})) > ${FUZZY_THRESHOLD}
+    ${albums.title} ILIKE ${pattern}
   `;
   const albumMetaMatch = sql`
-    unaccent(${albums.genre}) ILIKE unaccent(${pattern})
-    OR unaccent(${albums.label}) ILIKE unaccent(${pattern})
+    ${albums.genre} ILIKE ${pattern}
+    OR ${albums.label} ILIKE ${pattern}
   `;
   const trackMatch = sql`
-    unaccent(${tracks.title}) ILIKE unaccent(${pattern})
-    OR similarity(unaccent(${tracks.title}), unaccent(${q})) > ${FUZZY_THRESHOLD}
+    ${tracks.title} ILIKE ${pattern}
   `;
 
   const [artistRows, albumRows, trackRows] = await Promise.all([
