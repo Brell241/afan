@@ -10,6 +10,7 @@ const FUZZY_THRESHOLD = 0.25;
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? '';
+  console.log('Search query:', q);
   if (q.length < 2) return NextResponse.json({ artists: [], albums: [], tracks: [] });
 
   const pattern = `%${q}%`;
@@ -30,6 +31,8 @@ export async function GET(req: NextRequest) {
   const trackMatch = sql`
     ${tracks.title} ILIKE ${pattern}
   `;
+
+  console.log('Pattern:', pattern);
 
   const [artistRows, albumRows, trackRows] = await Promise.all([
     db
@@ -63,31 +66,37 @@ export async function GET(req: NextRequest) {
       .limit(8),
   ]);
 
-  // Enrichir les albums avec le nom de l'artiste
-  const artistIds = [...new Set(albumRows.map((a) => a.artist_id).filter(Boolean))] as string[];
+  
+  // Récupérer tous les albums nécessaires (recherche albums + albums des tracks)
+  const allAlbumIds = [
+    ...albumRows.map((a) => a.id),
+    ...trackRows.map((t) => t.album_id).filter(Boolean)
+  ] as string[];
+  
+  const albumData = await db
+    .select({ id: albums.id, slug: albums.slug, title: albums.title, artist_id: albums.artist_id })
+    .from(albums)
+    .where(sql`${albums.id} = ANY(ARRAY[${sql.join(allAlbumIds.map((id) => sql`${id}::uuid`), sql`, `)}])`);
+  
+  // Récupérer les artist_ids de ces albums
+  const artistIdsFromAlbums = albumData.map((a) => a.artist_id).filter(Boolean) as string[];
   const artistMap: Record<string, { name: string; slug: string }> = {};
-  if (artistIds.length) {
+  if (artistIdsFromAlbums.length) {
     const artistData = await db
       .select({ id: artists.id, name: artists.name, slug: artists.slug })
       .from(artists)
-      .where(sql`${artists.id} = ANY(ARRAY[${sql.join(artistIds.map((id) => sql`${id}::uuid`), sql`, `)}])`);
+      .where(sql`${artists.id} = ANY(ARRAY[${sql.join(artistIdsFromAlbums.map((id) => sql`${id}::uuid`), sql`, `)}])`);
     for (const a of artistData) artistMap[a.id] = { name: a.name, slug: a.slug };
   }
-
-  // Enrichir les tracks avec album + artiste
-  const albumIds = [...new Set(trackRows.map((t) => t.album_id).filter(Boolean))] as string[];
+  
+  // Construire albumMap avec les artistes
   const albumMap: Record<string, { slug: string; title: string; artist: { name: string; slug: string } }> = {};
-  if (albumIds.length) {
-    const albumData = await db
-      .select({ id: albums.id, slug: albums.slug, title: albums.title, artist_id: albums.artist_id })
-      .from(albums)
-      .where(sql`${albums.id} = ANY(ARRAY[${sql.join(albumIds.map((id) => sql`${id}::uuid`), sql`, `)}])`);
-    for (const alb of albumData) {
-      const artist = alb.artist_id ? artistMap[alb.artist_id] ?? null : null;
-      if (artist) albumMap[alb.id] = { slug: alb.slug, title: alb.title, artist };
-    }
+  for (const alb of albumData) {
+    const artist = alb.artist_id ? artistMap[alb.artist_id] ?? null : null;
+    if (artist) albumMap[alb.id] = { slug: alb.slug, title: alb.title, artist };
   }
-
+  
+  
   return NextResponse.json({
     artists: artistRows,
     albums: albumRows.map((a) => ({
