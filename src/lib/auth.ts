@@ -3,11 +3,12 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins';
 import { Resend } from 'resend';
 import { db } from '@/db';
+import * as schema from '@/db/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, { provider: 'pg' }),
+  database: drizzleAdapter(db, { provider: 'pg', schema }),
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
