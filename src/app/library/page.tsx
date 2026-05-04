@@ -171,7 +171,7 @@ export default function LibraryPage() {
                     return (
                       <div key={playlist.id} className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden hover:bg-white/[0.05] transition-colors">
                         <div className="flex items-center gap-3 px-4 py-3">
-                          <Link href={`/library/playlist/${playlist.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                          <Link href={`/library/playlist/${playlist.short_id ?? playlist.id}`} className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="w-10 h-10 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0">
                               <ListMusic size={16} className="text-white/30" />
                             </div>

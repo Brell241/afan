@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ListMusic, Play, Trash2, Music2, X, LogIn } from 'lucide-react';
+import { ArrowLeft, ListMusic, Play, Trash2, Music2, X, LogIn, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { useSession } from '@/lib/auth-client';
 import { useLibrary } from '@/lib/library-context';
 import { usePlayer } from '@/lib/player-context';
 import type { QueueEntry } from '@/lib/player-context';
 
 interface PlaylistData {
-  playlist: { id: string; name: string; created_at: string | null };
+  playlist: { id: string; short_id: string | null; name: string; created_at: string | null };
   entries: QueueEntry[];
 }
 
@@ -25,6 +25,7 @@ export default function PlaylistPage() {
   const [data, setData] = useState<PlaylistData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [reordering, setReordering] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,10 +49,29 @@ export default function PlaylistPage() {
 
   async function handleRemove(trackId: string) {
     if (!data) return;
-    await removeFromPlaylist(id, trackId);
+    await removeFromPlaylist(data.playlist.id, trackId);
     setData((prev) =>
       prev ? { ...prev, entries: prev.entries.filter((e) => e.track.id !== trackId) } : prev
     );
+  }
+
+  async function moveTrack(fromIdx: number, toIdx: number) {
+    if (!data) return;
+    const newEntries = [...data.entries];
+    const [moved] = newEntries.splice(fromIdx, 1);
+    newEntries.splice(toIdx, 0, moved);
+    setData((prev) => prev ? { ...prev, entries: newEntries } : prev);
+
+    setReordering(true);
+    try {
+      await fetch(`/api/playlists/${data.playlist.id}/reorder`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackIds: newEntries.map((e) => e.track.id) }),
+      });
+    } finally {
+      setReordering(false);
+    }
   }
 
   function handlePlayAll() {
@@ -86,7 +106,7 @@ export default function PlaylistPage() {
     );
   }
 
-  const playlistMeta = playlists.find((p) => p.id === id);
+  const playlistMeta = playlists.find((p) => p.id === data?.playlist.id || p.short_id === id);
   const name = data?.playlist.name ?? playlistMeta?.name ?? '…';
   const entries = data?.entries ?? [];
   const playableCount = entries.filter((e) => e.track.youtube_url).length;
@@ -153,19 +173,39 @@ export default function PlaylistPage() {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.05]">
+          <div className={`divide-y divide-white/[0.05] ${reordering ? 'opacity-60 pointer-events-none' : ''}`}>
             {entries.map(({ track, album, artist }, idx) => {
               const hasYt = !!track.youtube_url;
               const imgSrc = track.image_url ?? album.image_url;
               return (
                 <div
                   key={track.id}
-                  className={`flex items-center gap-4 py-2.5 px-3 group rounded-lg transition-colors ${hasYt ? 'hover:bg-white/[0.04] cursor-default' : 'cursor-default'}`}
+                  className="flex items-center gap-3 py-2 px-2 group rounded-lg hover:bg-white/[0.04] transition-colors"
                 >
+                  {/* Boutons réorder */}
+                  <div className="flex flex-col gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => moveTrack(idx, idx - 1)}
+                      disabled={idx === 0}
+                      className="w-5 h-4 flex items-center justify-center text-white/30 hover:text-white/70 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Monter"
+                    >
+                      <ChevronUp size={12} />
+                    </button>
+                    <button
+                      onClick={() => moveTrack(idx, idx + 1)}
+                      disabled={idx === entries.length - 1}
+                      className="w-5 h-4 flex items-center justify-center text-white/30 hover:text-white/70 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Descendre"
+                    >
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
+
                   {/* Numéro */}
                   <div className={`w-5 text-right shrink-0 ${!hasYt ? 'opacity-40' : ''}`}>
                     <span className="text-white/30 text-xs font-mono group-hover:hidden">
-                      {track.track_number ?? idx + 1}
+                      {idx + 1}
                     </span>
                     {hasYt ? (
                       <button
@@ -244,7 +284,7 @@ export default function PlaylistPage() {
           <div className="mt-10 pt-6 border-t border-white/[0.05]">
             <button
               onClick={async () => {
-                await deletePlaylist(id);
+                if (data?.playlist.id) await deletePlaylist(data.playlist.id);
                 router.push('/library');
               }}
               className="flex items-center gap-2 text-white/20 hover:text-red-400/60 text-xs transition-colors"

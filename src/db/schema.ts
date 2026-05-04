@@ -109,9 +109,17 @@ export const likes = pgTable('likes', {
 
 export const playlists = pgTable('playlists', {
   id: uuid('id').defaultRandom().primaryKey(),
+  short_id: text('short_id').unique(),
   user_id: text('user_id').notNull(),
   name: text('name').notNull(),
   created_at: timestamp('created_at').defaultNow(),
+});
+
+export const plays = pgTable('plays', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  track_id: uuid('track_id').notNull().references(() => tracks.id, { onDelete: 'cascade' }),
+  user_id: text('user_id'),
+  played_at: timestamp('played_at').defaultNow(),
 });
 
 export const playlist_tracks = pgTable('playlist_tracks', {
@@ -129,3 +137,4 @@ export type Contribution = typeof contributions.$inferSelect;
 export type Like = typeof likes.$inferSelect;
 export type Playlist = typeof playlists.$inferSelect;
 export type PlaylistTrack = typeof playlist_tracks.$inferSelect;
+export type Play = typeof plays.$inferSelect;

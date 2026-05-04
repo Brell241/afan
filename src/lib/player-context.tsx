@@ -78,6 +78,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const playerRef = useRef<any>(null);
   const playerElRef = useRef<HTMLDivElement | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trackedTrackRef = useRef<string | null>(null);
+
   /* Refs pour éviter les closures stales dans onStateChange */
   const queueRef = useRef<QueueEntry[]>([]);
   const queueIndexRef = useRef(-1);
@@ -111,8 +114,65 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   };
 
+  const clearPlayTimer = () => {
+    if (playTimerRef.current) { clearTimeout(playTimerRef.current); playTimerRef.current = null; }
+  };
+
+  /* Enregistrer une écoute après 10s de lecture continue */
+  const schedulePlay = useCallback((trackId: string) => {
+    clearPlayTimer();
+    if (trackId === trackedTrackRef.current) return;
+    playTimerRef.current = setTimeout(() => {
+      if (entryRef.current?.track.id !== trackId) return;
+      trackedTrackRef.current = trackId;
+      fetch('/api/plays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackId }),
+      }).catch(() => {});
+    }, 10000);
+  }, []);
+
+  const onStateChange = useCallback((e: any) => {
+    if (e.data === 3) {
+      setStatus('loading');
+      clearTick();
+      return;
+    }
+    if (e.data === 0) {
+      /* Fin du morceau → suivant automatique */
+      clearPlayTimer();
+      const nextIdx = queueIndexRef.current + 1;
+      if (nextIdx < queueRef.current.length) {
+        playAtIndexRef.current(nextIdx);
+      }
+      return;
+    }
+    const playing = e.data === 1;
+    if (e.data === 1) {
+      setStatus('ready');
+      if (playerRef.current?.getDuration) setDuration(playerRef.current.getDuration());
+    }
+    setIsPlaying(playing);
+    if (playing) {
+      const trackId = entryRef.current?.track.id;
+      if (trackId) schedulePlay(trackId);
+      intervalRef.current = setInterval(() => {
+        if (playerRef.current?.getCurrentTime) setCurrentTime(playerRef.current.getCurrentTime());
+      }, 500);
+    } else {
+      clearTick();
+      clearPlayTimer();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedulePlay]);
+
+  const onStateChangeRef = useRef(onStateChange);
+  useEffect(() => { onStateChangeRef.current = onStateChange; }, [onStateChange]);
+
   const destroyPlayer = useCallback(() => {
     clearTick();
+    clearPlayTimer();
     if (playerRef.current) {
       try { playerRef.current.destroy(); } catch { /* noop */ }
       playerRef.current = null;
@@ -121,24 +181,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setCurrentTime(0);
     setDuration(0);
     setStatus('idle');
-  }, []);
-
-  /* Jouer un track par index dans la queue courante */
-  const playAtIndex = useCallback((idx: number) => {
-    const q = queueRef.current;
-    const e = entryRef.current;
-    if (!e || idx < 0 || idx >= q.length) return;
-    const { track: nextTrack, album: nextAlbum, artist: nextArtist } = q[idx];
-    setQueueIndex(idx);
-    setEntry({ track: nextTrack, album: nextAlbum, artist: nextArtist ?? e.artist });
-    destroyPlayer();
-    const videoId = nextTrack.youtube_url ? extractVideoId(nextTrack.youtube_url) : null;
-    if (videoId) initPlayer(videoId); // initPlayer défini ci-dessous via ref
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destroyPlayer]);
-
-  const playAtIndexRef = useRef(playAtIndex);
-  useEffect(() => { playAtIndexRef.current = playAtIndex; }, [playAtIndex]);
+  }, []);
 
   const initPlayer = useCallback((videoId: string) => {
     if (!playerElRef.current) return;
@@ -156,25 +200,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             e.target.playVideo();
           },
           onError: () => setStatus('error'),
-          onStateChange: (e: any) => {
-            if (e.data === 0) {
-              /* Fin du morceau → suivant automatique */
-              const nextIdx = queueIndexRef.current + 1;
-              if (nextIdx < queueRef.current.length) {
-                playAtIndexRef.current(nextIdx);
-              }
-              return;
-            }
-            const playing = e.data === 1;
-            setIsPlaying(playing);
-            if (playing) {
-              intervalRef.current = setInterval(() => {
-                if (playerRef.current?.getCurrentTime) setCurrentTime(playerRef.current.getCurrentTime());
-              }, 500);
-            } else {
-              clearTick();
-            }
-          },
+          onStateChange: (e: any) => onStateChangeRef.current(e),
         },
       });
     };
@@ -193,6 +219,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /* Jouer un track par index dans la queue courante */
+  const playAtIndex = useCallback((idx: number) => {
+    const q = queueRef.current;
+    const e = entryRef.current;
+    if (!e || idx < 0 || idx >= q.length) return;
+    const { track: nextTrack, album: nextAlbum, artist: nextArtist } = q[idx];
+    setQueueIndex(idx);
+    setEntry({ track: nextTrack, album: nextAlbum, artist: nextArtist ?? e.artist });
+    trackedTrackRef.current = null;
+    const videoId = nextTrack.youtube_url ? extractVideoId(nextTrack.youtube_url) : null;
+    if (videoId) {
+      if (playerRef.current && window.YT?.Player) {
+        setStatus('loading');
+        setCurrentTime(0);
+        setDuration(0);
+        setIsPlaying(false);
+        clearTick();
+        clearPlayTimer();
+        playerRef.current.loadVideoById(videoId);
+      } else {
+        destroyPlayer();
+        initPlayer(videoId);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destroyPlayer, initPlayer]);
+
+  const playAtIndexRef = useRef(playAtIndex);
+  useEffect(() => { playAtIndexRef.current = playAtIndex; }, [playAtIndex]);
+
   const play = useCallback(
     (track: Track, album: Album, artist: ArtistRef, newQueue?: QueueEntry[]) => {
       const q = newQueue ?? [{ track, album }];
@@ -202,9 +258,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queueRef.current = q;
       queueIndexRef.current = idx;
       setEntry({ track, album, artist });
-      destroyPlayer();
+      trackedTrackRef.current = null;
       const videoId = track.youtube_url ? extractVideoId(track.youtube_url) : null;
-      if (videoId) initPlayer(videoId);
+      if (videoId) {
+        if (playerRef.current && window.YT?.Player) {
+          setStatus('loading');
+          setCurrentTime(0);
+          setDuration(0);
+          setIsPlaying(false);
+          clearTick();
+          clearPlayTimer();
+          playerRef.current.loadVideoById(videoId);
+        } else {
+          destroyPlayer();
+          initPlayer(videoId);
+        }
+      }
     },
     [destroyPlayer, initPlayer]
   );
@@ -219,9 +288,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queueRef.current = entries;
       queueIndexRef.current = idx;
       setEntry({ track: first.track, album: first.album, artist });
-      destroyPlayer();
+      trackedTrackRef.current = null;
       const videoId = extractVideoId(first.track.youtube_url!);
-      if (videoId) initPlayer(videoId);
+      if (videoId) {
+        if (playerRef.current && window.YT?.Player) {
+          setStatus('loading');
+          setCurrentTime(0);
+          setDuration(0);
+          setIsPlaying(false);
+          clearTick();
+          clearPlayTimer();
+          playerRef.current.loadVideoById(videoId);
+        } else {
+          destroyPlayer();
+          initPlayer(videoId);
+        }
+      }
     },
     [destroyPlayer, initPlayer]
   );
@@ -273,6 +355,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setEntry(null);
     setQueue([]);
     setQueueIndex(-1);
+    trackedTrackRef.current = null;
   }, [destroyPlayer]);
 
   return (

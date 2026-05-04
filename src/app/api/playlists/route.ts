@@ -5,6 +5,13 @@ import { db } from '@/db';
 import { playlists, playlist_tracks } from '@/db/schema';
 import { auth } from '@/lib/auth';
 
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+function generateShortId(len = 8): string {
+  let id = '';
+  for (let i = 0; i < len; i++) id += CHARS[Math.floor(Math.random() * CHARS.length)];
+  return id;
+}
+
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json([]);
@@ -33,9 +40,10 @@ export async function POST(req: Request) {
   const { name } = await req.json() as { name: string };
   if (!name?.trim()) return NextResponse.json({ error: 'Nom requis' }, { status: 400 });
 
+  const short_id = generateShortId();
   const [playlist] = await db
     .insert(playlists)
-    .values({ user_id: session.user.id, name: name.trim() })
+    .values({ user_id: session.user.id, name: name.trim(), short_id })
     .returning();
 
   return NextResponse.json(playlist);

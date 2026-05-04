@@ -1,18 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, Library } from 'lucide-react';
+import { Search, Library, Home } from 'lucide-react';
 import { useSearch } from '@/lib/search-context';
 import { useSession } from '@/lib/auth-client';
+import { usePathname } from 'next/navigation';
 
 export function HomeNav() {
   const { open } = useSearch();
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const isHome = pathname === '/';
 
   return (
     <nav className="fixed top-0 inset-x-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/5">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <span className="text-white font-black text-xl tracking-tight">afan</span>
+        <Link href="/" className="text-white font-black text-xl tracking-tight hover:text-white/80 transition-colors">
+          afan
+        </Link>
 
         <div className="flex items-center gap-3">
           <button
@@ -27,18 +32,33 @@ export function HomeNav() {
           {session?.user && (
             <Link
               href="/library"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/40 hover:text-white/70 text-xs transition-all"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-all ${
+                pathname.startsWith('/library')
+                  ? 'bg-white/[0.10] border-white/[0.15] text-white/80'
+                  : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/[0.08] text-white/40 hover:text-white/70'
+              }`}
             >
               <Library size={12} />
               <span className="hidden sm:inline">Ma musique</span>
             </Link>
           )}
-          <a
-            href="#artistes"
-            className="bg-white text-black text-xs font-bold px-5 py-2.5 rounded-full hover:scale-105 transition-transform"
-          >
-            Explorer
-          </a>
+
+          {isHome ? (
+            <a
+              href="#artistes"
+              className="bg-white text-black text-xs font-bold px-5 py-2.5 rounded-full hover:scale-105 transition-transform"
+            >
+              Explorer
+            </a>
+          ) : (
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 bg-white text-black text-xs font-bold px-4 py-2 rounded-full hover:scale-105 transition-transform"
+            >
+              <Home size={12} />
+              <span>Accueil</span>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
