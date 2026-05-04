@@ -11,6 +11,7 @@ import { AlbumNav } from '@/components/album/AlbumNav';
 import { AlbumCoverUpload } from '@/components/album/AlbumCoverUpload';
 import { TracklistWithSheet } from '@/components/album/TracklistWithSheet';
 import { ShareButton } from '@/components/ui/ShareButton';
+import { PlayAlbumButton } from '@/components/album/PlayAlbumButton';
 
 export async function generateMetadata({
   params,
@@ -144,7 +145,12 @@ export default async function AlbumPage({
                   <span className="text-white/40">{albumTracks.length} titre{albumTracks.length !== 1 ? 's' : ''}</span></>
                 )}
               </div>
-              <div className="mt-3">
+              <div className="mt-4 flex items-center gap-3 flex-wrap">
+                <PlayAlbumButton
+                  tracks={albumTracks}
+                  album={album}
+                  artist={{ name: artist.name, slug: artist.slug }}
+                />
                 <ShareButton
                   url={`/artist/${slug}/album/${albumSlug}`}
                   title={`${album.title} — ${artist.name} · Afan`}

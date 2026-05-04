@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { ShareButton } from '@/components/ui/ShareButton';
+import { PlayAllButton } from '@/components/artist/PlayAllButton';
 
 interface ArtistHeaderProps {
   id: string;
@@ -101,6 +102,9 @@ export function ArtistHeader({ id, name, slug, bio, photo_url }: ArtistHeaderPro
         >
           {name}
         </h1>
+        <div className="mt-6">
+          <PlayAllButton artistSlug={slug} artistName={name} />
+        </div>
       </div>
 
       {/* Boutons top-right — décalés sous la nav fixe (h-14 = 56px) */}

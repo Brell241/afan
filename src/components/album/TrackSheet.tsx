@@ -253,7 +253,7 @@ export function TrackSheet({ track, tracks, album, artist, onClose, onSaved }: T
   function handleToggle() {
     if (!track?.youtube_url) return;
     if (isThisTrack) togglePlay();
-    else play(track, album, artist, tracks);
+    else play(track, album, artist, tracks.map((t) => ({ track: t, album })));
   }
 
   function handleSeek(e: React.MouseEvent<HTMLDivElement>) {

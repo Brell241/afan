@@ -23,6 +23,8 @@ type PlayerStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type ArtistRef = { name: string; slug: string };
 
+export type QueueEntry = { track: Track; album: Album; artist?: { name: string; slug: string } };
+
 interface PlayerContextValue {
   track: Track | null;
   album: Album | null;
@@ -35,7 +37,8 @@ interface PlayerContextValue {
   canPlayNext: boolean;
   volume: number;
   muted: boolean;
-  play: (track: Track, album: Album, artist: ArtistRef, queue?: Track[]) => void;
+  play: (track: Track, album: Album, artist: ArtistRef, queue?: QueueEntry[]) => void;
+  playAll: (entries: QueueEntry[], artist: ArtistRef) => void;
   playPrev: () => void;
   playNext: () => void;
   togglePlay: () => void;
@@ -60,7 +63,7 @@ function extractVideoId(url: string): string | null {
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [entry, setEntry] = useState<{ track: Track; album: Album; artist: ArtistRef } | null>(null);
-  const [queue, setQueue] = useState<Track[]>([]);
+  const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [queueIndex, setQueueIndex] = useState(-1);
   const [status, setStatus] = useState<PlayerStatus>('idle');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,7 +79,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const playerElRef = useRef<HTMLDivElement | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   /* Refs pour éviter les closures stales dans onStateChange */
-  const queueRef = useRef<Track[]>([]);
+  const queueRef = useRef<QueueEntry[]>([]);
   const queueIndexRef = useRef(-1);
   const entryRef = useRef<typeof entry>(null);
 
@@ -120,14 +123,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setStatus('idle');
   }, []);
 
-  /* Jouer un track par index dans la queue courante — sans modifier album/artist */
+  /* Jouer un track par index dans la queue courante */
   const playAtIndex = useCallback((idx: number) => {
     const q = queueRef.current;
     const e = entryRef.current;
     if (!e || idx < 0 || idx >= q.length) return;
-    const nextTrack = q[idx];
+    const { track: nextTrack, album: nextAlbum, artist: nextArtist } = q[idx];
     setQueueIndex(idx);
-    setEntry({ ...e, track: nextTrack });
+    setEntry({ track: nextTrack, album: nextAlbum, artist: nextArtist ?? e.artist });
     destroyPlayer();
     const videoId = nextTrack.youtube_url ? extractVideoId(nextTrack.youtube_url) : null;
     if (videoId) initPlayer(videoId); // initPlayer défini ci-dessous via ref
@@ -191,9 +194,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const play = useCallback(
-    (track: Track, album: Album, artist: ArtistRef, newQueue?: Track[]) => {
-      const q = newQueue ?? [track];
-      const idx = q.findIndex((t) => t.id === track.id);
+    (track: Track, album: Album, artist: ArtistRef, newQueue?: QueueEntry[]) => {
+      const q = newQueue ?? [{ track, album }];
+      const idx = q.findIndex((e) => e.track.id === track.id);
       setQueue(q);
       setQueueIndex(idx);
       queueRef.current = q;
@@ -201,6 +204,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setEntry({ track, album, artist });
       destroyPlayer();
       const videoId = track.youtube_url ? extractVideoId(track.youtube_url) : null;
+      if (videoId) initPlayer(videoId);
+    },
+    [destroyPlayer, initPlayer]
+  );
+
+  const playAll = useCallback(
+    (entries: QueueEntry[], artist: ArtistRef) => {
+      const first = entries.find((e) => e.track.youtube_url);
+      if (!first) return;
+      const idx = entries.indexOf(first);
+      setQueue(entries);
+      setQueueIndex(idx);
+      queueRef.current = entries;
+      queueIndexRef.current = idx;
+      setEntry({ track: first.track, album: first.album, artist });
+      destroyPlayer();
+      const videoId = extractVideoId(first.track.youtube_url!);
       if (videoId) initPlayer(videoId);
     },
     [destroyPlayer, initPlayer]
@@ -270,6 +290,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         volume,
         muted,
         play,
+        playAll,
         playPrev,
         playNext,
         togglePlay,

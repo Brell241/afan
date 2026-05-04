@@ -1,0 +1,19 @@
+{
+  "artist_name": "Chris Ayoumé",
+  "artist_slug": "chris-ayoume",
+  "bio": "",
+  "born_year": null,
+  "death_year": null,
+  "albums": [
+    {
+      "title": "Principales œuvres",
+      "year": 2000,
+      "slug": "principales-oeuvres",
+      "format": "Compilation YouTube",
+      "label": "",
+      "genre": "",
+      "image_url": null,
+      "track_count": 12
+    }
+  ]
+}

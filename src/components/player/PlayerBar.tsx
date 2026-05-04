@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { usePlayer } from '@/lib/player-context';
 import { ShareButton } from '@/components/ui/ShareButton';
+import { LikeButton } from '@/components/ui/LikeButton';
+import { AddToPlaylistButton } from '@/components/ui/AddToPlaylistButton';
 
 function formatTime(s: number) {
   if (!s || isNaN(s)) return '0:00';
@@ -103,6 +105,14 @@ export function PlayerBar() {
             <SkipForward size={18} fill="currentColor" />
           </button>
         </div>
+
+        {/* Like + playlist (mobile) */}
+        <LikeButton
+          type="track"
+          id={track.id}
+          size={16}
+          className="w-8 h-8 flex items-center justify-center text-white/25 hover:text-white/60 active:scale-90 transition-all shrink-0 data-[liked=true]:text-[#e85d7e]"
+        />
 
         {/* Partager (mobile) */}
         {artist?.slug && album?.slug && (
@@ -210,6 +220,18 @@ export function PlayerBar() {
               </div>
             </div>
           </div>
+
+          {/* Like + playlist (desktop) */}
+          <LikeButton
+            type="track"
+            id={track.id}
+            size={15}
+            className="text-white/25 hover:text-white/70 transition-colors p-1 data-[liked=true]:text-[#e85d7e]"
+          />
+          <AddToPlaylistButton
+            trackId={track.id}
+            className="text-white/25 hover:text-white/70 transition-colors p-1"
+          />
 
           {/* Partager (desktop) */}
           {artist?.slug && album?.slug && (

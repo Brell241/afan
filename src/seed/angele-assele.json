@@ -1,0 +1,69 @@
+{
+  "artist_name": "Angèle Assélé",
+  "artist_slug": "angele-assele",
+  "bio": "Angèle Assélé est une artiste musicienne gabonaise née le 23 décembre 1967 à Libreville.",
+  "born_year": 1967,
+  "death_year": null,
+  "albums": [
+    {
+      "title": "Esperancia",
+      "year": 1984,
+      "slug": "esperancia",
+      "format": "Vinyl",
+      "label": "Editions Mademba (MD 1767)",
+      "genre": "Folk, World, & Country / African",
+      "image_url": "https://i.discogs.com/lZ9XAstuqWaWS13dFBmPYlWSctD8QtQWDPF96usQJIs/rs:fit/g:sm/q:40/h:150/w:150/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTcwNDgz/NTEtMTcwNzc3Njg4/Ny02NTg4LmpwZWc.jpeg",
+      "track_count": 5
+    },
+    {
+      "title": "Angèle Assele & Les Diablotins",
+      "year": 1985,
+      "slug": "angele-assele-les-diablotins",
+      "format": "Vinyl",
+      "label": "Editions Mademba (MD 1768)",
+      "genre": "Folk, World, & Country / Soukous",
+      "image_url": "https://i.discogs.com/QbNEUQ3_Z8xFQQphftxQRnv5EerU-FGFbyX1BEKj2qs/rs:fit/g:sm/q:40/h:150/w:150/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc4MTMz/OTctMTY1NzE3Njcw/MC02NzE5LmpwZWc.jpeg",
+      "track_count": 4
+    },
+    {
+      "title": "Amour Sans Frontières",
+      "year": 1985,
+      "slug": "amour-sans-frontieres",
+      "format": "Compilation YouTube",
+      "label": "",
+      "genre": "",
+      "image_url": null,
+      "track_count": 19
+    },
+    {
+      "title": "Au Nom De La Vie",
+      "year": 1998,
+      "slug": "au-nom-de-la-vie",
+      "format": "CD",
+      "label": "Epssy Records (3044075)",
+      "genre": "Folk, World, & Country / Soukous",
+      "image_url": "https://i.discogs.com/pXbRmnrs1kpcRJeoAvUFQYJ9fcPfsW7vNAjItOf37Ro/rs:fit/g:sm/q:40/h:150/w:150/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIzMzAz/MzAwLTE2NTMxMzQw/NDAtMjI1Ni5qcGVn.jpeg",
+      "track_count": 2
+    },
+    {
+      "title": "Feeling Love",
+      "year": 1998,
+      "slug": "feeling-love",
+      "format": "YouTube Music",
+      "label": "",
+      "genre": "",
+      "image_url": null,
+      "track_count": 11
+    },
+    {
+      "title": "Essentiel",
+      "year": 2020,
+      "slug": "essentiel",
+      "format": "File",
+      "label": "Kage Pro",
+      "genre": "Folk, World, & Country / African",
+      "image_url": "https://i.discogs.com/Y0rgWii6BDBwK-Ra6owVHu8p50Sl9XKN9R4lFBGn1-M/rs:fit/g:sm/q:40/h:150/w:150/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIwNTUz/MDIyLTE2MzM5Njc3/ODEtNTY4Ny5qcGVn.jpeg",
+      "track_count": 10
+    }
+  ]
+}

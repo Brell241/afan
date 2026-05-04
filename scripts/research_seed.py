@@ -195,6 +195,15 @@ DISCOGS_RELEASES = "https://api.discogs.com/artists/{id}/releases"
 DISCOGS_RELEASE  = "https://api.discogs.com/releases/{id}"
 DISCOGS_TOKEN    = ENV.get("DISCOGS_TOKEN") or os.getenv("DISCOGS_TOKEN")
 
+# Genres Discogs incompatibles avec un artiste de musique africaine francophone
+_SUSPICIOUS_FOR_AFRICAN = re.compile(
+    r'\b(?:drum\s*[&n]\s*bass|dnb|techno|trance|metal|thrash|grunge|punk|'
+    r'edm|dubstep|house|ambient|new\s*age|folk\s*rock|indie\s*rock|'
+    r'psychedelic|prog(?:ressive)?|noise|post.rock|shoegaze|'
+    r'hip.hop|hip\s*hop|rap|r&b|rnb)\b',
+    re.IGNORECASE,
+)
+
 
 def _discogs_get(url: str, params: dict | None = None) -> dict | None:
     headers = dict(BASE_HEADERS)
@@ -258,6 +267,10 @@ def fetch_discogs_tracklist(release_id: int) -> dict:
 
     genres = data.get("genres", []) + data.get("styles", [])
     genre = " / ".join(genres[:2]) if genres else ""
+
+    if genre and _SUSPICIOUS_FOR_AFRICAN.search(genre):
+        print(f"  ⚠ Genre suspect pour un artiste africain ({genre}) — release ignorée")
+        return {}
 
     notes = re.sub(r"\[/?[a-z=0-9]+\]", "", (data.get("notes") or "")).strip()
     description = notes[:400] if notes else ""
@@ -433,9 +446,14 @@ def _extract_videos_from_yt_data(data: dict) -> list[dict]:
 
 
 def fetch_channel_videos(channel_handle: str) -> list[dict]:
-    """Récupère les vidéos d'une chaîne YouTube (handle ex: @APN245)."""
-    handle = channel_handle if channel_handle.startswith("@") else f"@{channel_handle}"
-    url = f"https://www.youtube.com/{handle}/videos"
+    """Récupère les vidéos d'une chaîne YouTube (handle @APN245 ou ID UCAFRTRYx...)."""
+    if channel_handle.startswith("UC") or channel_handle.startswith("/channel/"):
+        cid = channel_handle.lstrip("/channel/")
+        url = f"https://www.youtube.com/channel/{cid}/videos"
+    elif channel_handle.startswith("@"):
+        url = f"https://www.youtube.com/{channel_handle}/videos"
+    else:
+        url = f"https://www.youtube.com/@{channel_handle}/videos"
     print(f"  Chaîne : {url}")
     r = _yt_get(url)
     if not r:
@@ -447,6 +465,64 @@ def fetch_channel_videos(channel_handle: str) -> list[dict]:
     videos = _extract_videos_from_yt_data(data)
     print(f"  ✓ {len(videos)} vidéos trouvées sur la chaîne")
     return videos
+
+
+def fetch_youtube_playlist(playlist_url: str) -> list[dict]:
+    """
+    Récupère les pistes d'une playlist YouTube (y compris les playlists YouTube Music OLAK5uy_...).
+    Les titres sont déjà propres et correspondent directement aux noms de chansons.
+    """
+    r = _yt_get(playlist_url)
+    if not r:
+        return []
+    data = _extract_yt_initial_data(r.text)
+    if not data:
+        print("  ⚠ Impossible de lire la playlist")
+        return []
+
+    tracks: list[dict] = []
+    seen_ids: set[str] = set()
+
+    for pvr in _find_all(data, "playlistVideoRenderer"):
+        vid_id = pvr.get("videoId", "")
+        if not vid_id or vid_id in seen_ids:
+            continue
+        t = pvr.get("title", {})
+        title = "".join(run["text"] for run in t.get("runs", [])) or t.get("simpleText", "")
+        if not title:
+            continue
+        seen_ids.add(vid_id)
+        tracks.append({
+            "title": title.strip(),
+            "track_number": len(tracks) + 1,
+            "youtube_url": f"https://www.youtube.com/watch?v={vid_id}",
+        })
+
+    print(f"  ✓ Playlist : {len(tracks)} piste(s)")
+    return tracks
+
+
+def search_youtube_playlist_url(query: str) -> str | None:
+    """
+    Cherche une playlist YouTube (filtre type=playlist) et retourne l'URL de la première.
+    Très efficace pour trouver les playlists d'albums YouTube Music (OLAK5uy_...).
+    """
+    url = (
+        "https://www.youtube.com/results"
+        f"?search_query={urllib.parse.quote(query)}&sp=EgIQAw%3D%3D"
+    )
+    r = _yt_get(url)
+    if not r:
+        return None
+    data = _extract_yt_initial_data(r.text)
+    if not data:
+        return None
+
+    for pr in _find_all(data, "playlistRenderer"):
+        playlist_id = pr.get("playlistId", "")
+        if playlist_id:
+            return f"https://www.youtube.com/playlist?list={playlist_id}"
+    return None
 
 
 def search_youtube_videos(query: str, max_results: int = 30) -> list[dict]:
@@ -546,8 +622,10 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
 
 
 _NON_SONG_KEYWORDS = re.compile(
-    r"\b(?:oligui|nguema|dialogue\s+national|prestation|conference|"
-    r"interview|emission|journal|tv|feat\.|featuring|remix|dj\s|mix\b)\b",
+    r"\b(?:oligui|nguema|dialogue\s+national|prestation|conf[eé]rence|"
+    r"interview|[eé]mission|journal|tv|feat\.|featuring|remix|dj\s|mix\b|"
+    r"reportage|traduction|translation|excuses?|arnaque|maffioso|bamilek[eé]|"
+    r"kribien|d[eé]dicace|veuve|peuple gabonais)\b",
     re.IGNORECASE,
 )
 
@@ -555,8 +633,19 @@ _NON_SONG_KEYWORDS = re.compile(
 def _is_song_video(video: dict, artist_name: str) -> bool:
     """Retourne False si la vidéo est clairement une non-chanson."""
     title = video.get("title", "")
+
     if _NON_SONG_KEYWORDS.search(title):
         return False
+
+    # Rejeter les titres trop longs (> 80 car.) — généralement des titres de vidéos d'actualité
+    if len(title) > 80:
+        return False
+
+    # Rejeter les titres entièrement en MAJUSCULES + longs (style news YouTube)
+    stripped = re.sub(r"[^A-Za-z]", "", title)
+    if len(stripped) > 15 and stripped == stripped.upper():
+        return False
+
     artist_short = artist_name.split()[0][:4].lower()
     channel = video.get("channel", "").lower()
     if not re.search(re.escape(artist_short), title, re.IGNORECASE) and artist_short not in channel:
@@ -729,10 +818,18 @@ def _videos_to_tracks(videos: list[dict], artist_name: str, strict: bool = True)
     tracks: list[dict] = []
     seen: set[str] = set()
     for v in videos:
+        raw = v.get("title", "")
         if strict and not _is_song_video(v, artist_name):
             continue
-        if not strict and _NON_SONG_KEYWORDS.search(v.get("title", "")):
-            continue
+        if not strict:
+            if _NON_SONG_KEYWORDS.search(raw):
+                continue
+            # Mêmes filtres heuristiques qu'en mode strict : titre trop long ou ALL CAPS = actu/gossip
+            if len(raw) > 80:
+                continue
+            stripped = re.sub(r"[^A-Za-z]", "", raw)
+            if len(stripped) > 15 and stripped == stripped.upper():
+                continue
         title = _extract_song_title_from_video(v["title"], artist_name)
         s = slugify(title)
         if s in seen or len(s) < 2:
@@ -784,12 +881,18 @@ def build_youtube_compilation(artist_name: str) -> list[dict]:
     }]
 
 
-def enrich_albums_from_gstore_and_youtube(discography: list[dict], artist_name: str) -> None:
+def enrich_albums_from_gstore_and_youtube(
+    discography: list[dict],
+    artist_name: str,
+    album_playlists: dict[str, str] | None = None,
+) -> None:
     """
-    Pour les albums sans tracklist (typiquement issus de Wikipedia) :
-    1. Cherche la tracklist sur GStore Music
-    2. Sinon, recherche YouTube ciblée sur l'album
-    3. Dernier recours : recherche YouTube générale → album "Principales œuvres"
+    Pour les albums sans tracklist (typiquement issus de Wikipedia ou stubs Discogs) :
+    0. Playlist explicite passée via --yt-playlist
+    1. GStore Music
+    1b. Playlist YouTube automatique (recherche par type=playlist)
+    2. Recherche YouTube ciblée sur l'album
+    3. Recherche YouTube générale → album "Principales œuvres"
     """
     print("\n📦 GStore Music — recherche des tracklists...")
     gstore_info = fetch_gstore_artist(artist_name)
@@ -801,6 +904,16 @@ def enrich_albums_from_gstore_and_youtube(discography: list[dict], artist_name: 
     for album in discography:
         if album.get("tracks"):
             continue  # déjà renseigné (Discogs)
+
+        # 0. Playlist explicite (--yt-playlist)
+        if album_playlists and album["slug"] in album_playlists:
+            playlist_url = album_playlists[album["slug"]]
+            print(f"  → Playlist explicite : {album['title']}...")
+            tracks = fetch_youtube_playlist(playlist_url)
+            if tracks:
+                album["tracks"] = tracks
+                album["format"] = "YouTube Music"
+                continue
 
         # 1. GStore
         gstore_match = next(
@@ -817,21 +930,51 @@ def enrich_albums_from_gstore_and_youtube(discography: list[dict], artist_name: 
                 album["tracks"] = tracks
                 continue
 
+        # 1b. Playlist YouTube automatique
+        print(f"  → Playlist YouTube : {artist_name} {album['title']}...")
+        playlist_url = search_youtube_playlist_url(f"{artist_name} {album['title']}")
+        time.sleep(0.5)
+        if playlist_url:
+            print(f"    {playlist_url}")
+            tracks = fetch_youtube_playlist(playlist_url)
+            time.sleep(0.3)
+            if tracks:
+                album["tracks"] = tracks
+                album["format"] = "YouTube Music"
+                continue
+
         # 2. YouTube ciblé sur l'album (mode non-strict : la requête est déjà ciblée)
         print(f"  → YouTube : {artist_name} – {album['title']}...")
         vids = search_youtube_videos(f"{artist_name} {album['title']}", max_results=20)
         time.sleep(0.5)
         tracks = _videos_to_tracks(vids, artist_name, strict=False)
+
+        # 2b. 2e tentative YouTube avec l'année si la première est vide
+        if not tracks and album.get("year"):
+            print(f"  → YouTube : {artist_name} {album['year']}...")
+            vids = search_youtube_videos(f"{artist_name} {album['year']}", max_results=20)
+            time.sleep(0.5)
+            tracks = _videos_to_tracks(vids, artist_name, strict=False)
+
         if tracks:
             album["tracks"] = tracks
             album["format"] = "Compilation YouTube"
             continue
 
-        # 3. Recherche générale → Principales œuvres
-        print(f"  → YouTube (général) : {artist_name}...")
-        vids = search_youtube_videos(f"{artist_name} clip officiel", max_results=30)
-        time.sleep(0.5)
-        tracks = _videos_to_tracks(vids, artist_name, strict=False)
+        # 3. Recherche générale (plusieurs requêtes) → Principales œuvres
+        tracks = []
+        for query in [
+            f"{artist_name} clip officiel",
+            f"{artist_name} musique",
+            artist_name,
+        ]:
+            print(f"  → YouTube (général) : {query}...")
+            vids = search_youtube_videos(query, max_results=30)
+            time.sleep(0.5)
+            tracks = _videos_to_tracks(vids, artist_name, strict=False)
+            if tracks:
+                break
+
         if tracks:
             album["title"]  = "Principales œuvres"
             album["slug"]   = "principales-oeuvres"
@@ -1213,11 +1356,26 @@ def main():
                         help="Reformuler la bio et extraire les genres via DeepSeek")
     parser.add_argument("--deepseek-key", metavar="KEY",
                         help="Clé API DeepSeek (sinon lu depuis DEEPSEEK_API_KEY dans .env.local)")
+    parser.add_argument("--discogs-id", metavar="ID", type=int,
+                        help="ID Discogs de l'artiste (évite la recherche auto et les ambiguïtés de noms)")
+    parser.add_argument("--yt-playlist", action="append", metavar="SLUG=URL",
+                        help="Playlist YouTube pour un album spécifique "
+                             "(ex: feeling-love=https://www.youtube.com/playlist?list=...). "
+                             "Peut être répété pour plusieurs albums.")
     args = parser.parse_args()
 
     artist_name = args.artist_name
     artist_slug = args.artist_slug
     filename    = args.filename or artist_slug
+
+    # Parsing des playlists explicites --yt-playlist slug=url
+    album_playlists: dict[str, str] = {}
+    for item in (args.yt_playlist or []):
+        if "=" in item:
+            slug, _, url = item.partition("=")
+            album_playlists[slug.strip()] = url.strip()
+        else:
+            print(f"  ⚠ --yt-playlist ignoré (format attendu SLUG=URL) : {item}")
     use_images      = args.images or args.cloudinary
     use_cloudinary  = args.cloudinary
     use_deepseek    = args.deepseek
@@ -1247,7 +1405,11 @@ def main():
 
     # 2. Discogs
     print("\n🎵 Discogs...")
-    discogs_id = fetch_discogs_artist_id(artist_name)
+    if args.discogs_id:
+        discogs_id = args.discogs_id
+        print(f"  ✓ Discogs ID forcé : {discogs_id}")
+    else:
+        discogs_id = fetch_discogs_artist_id(artist_name)
     discography: list[dict] = []
 
     if discogs_id:
@@ -1278,8 +1440,8 @@ def main():
     # 5a. Enrichissement des tracklists + URLs YouTube
     elif discography and not args.no_youtube:
         # Albums sans tracklist (Wikipedia) → GStore puis YouTube
-        if any(not a.get("tracks") for a in discography):
-            enrich_albums_from_gstore_and_youtube(discography, artist_name)
+        if any(not a.get("tracks") for a in discography) or album_playlists:
+            enrich_albums_from_gstore_and_youtube(discography, artist_name, album_playlists=album_playlists)
         # Tous les tracks sans URL YouTube
         enrich_with_youtube(artist_name, discography)
 

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, timestamp, unique } from 'drizzle-orm/pg-core';
 
 export const artists = pgTable('artists', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -51,7 +51,34 @@ export const contributions = pgTable('contributions', {
   created_at: timestamp('created_at').defaultNow(),
 });
 
+export const likes = pgTable('likes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  user_id: text('user_id').notNull(),
+  track_id: uuid('track_id').references(() => tracks.id, { onDelete: 'cascade' }),
+  album_id: uuid('album_id').references(() => albums.id, { onDelete: 'cascade' }),
+  artist_id: uuid('artist_id').references(() => artists.id, { onDelete: 'cascade' }),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+export const playlists = pgTable('playlists', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  user_id: text('user_id').notNull(),
+  name: text('name').notNull(),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+export const playlist_tracks = pgTable('playlist_tracks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  playlist_id: uuid('playlist_id').notNull().references(() => playlists.id, { onDelete: 'cascade' }),
+  track_id: uuid('track_id').notNull().references(() => tracks.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull().default(0),
+  added_at: timestamp('added_at').defaultNow(),
+}, (t) => [unique().on(t.playlist_id, t.track_id)]);
+
 export type Artist = typeof artists.$inferSelect;
 export type Album = typeof albums.$inferSelect;
 export type Track = typeof tracks.$inferSelect;
 export type Contribution = typeof contributions.$inferSelect;
+export type Like = typeof likes.$inferSelect;
+export type Playlist = typeof playlists.$inferSelect;
+export type PlaylistTrack = typeof playlist_tracks.$inferSelect;
