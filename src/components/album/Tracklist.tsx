@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { Camera, Music2, PencilLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlayer } from '@/lib/player-context';
+import { LikeButton } from '@/components/ui/LikeButton';
+import { AddToPlaylistButton } from '@/components/ui/AddToPlaylistButton';
 import type { Track, Album } from '@/db/schema';
 
 interface TracklistProps {
@@ -72,7 +74,8 @@ function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
 
 export function Tracklist({ tracks, album, artist, onOpenTrack }: TracklistProps) {
   const { play, track: activeTrack } = usePlayer();
-  const playTrack = (track: Track) => play(track, album, artist, tracks);
+  const playTrack = (track: Track) =>
+    play(track, album, artist, tracks.map((t) => ({ track: t, album })));
 
   if (tracks.length === 0) {
     return (
@@ -86,6 +89,7 @@ export function Tracklist({ tracks, album, artist, onOpenTrack }: TracklistProps
     <div className="divide-y divide-white/5">
       {tracks.map((track, idx) => {
         const isActive = activeTrack?.id === track.id;
+        const hasYt = !!track.youtube_url;
         return (
           <div
             key={track.id}
@@ -124,7 +128,7 @@ export function Tracklist({ tracks, album, artist, onOpenTrack }: TracklistProps
             <TrackThumbnail track={track} album={album} />
 
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium truncate transition-colors ${isActive ? 'text-[#1DB954]' : 'text-white/90 group-hover:text-white'}`}>
+              <p className={`text-sm font-medium truncate transition-colors ${isActive ? 'text-[#1DB954]' : hasYt ? 'text-white/90 group-hover:text-white' : 'text-white/35'}`}>
                 {track.title}
               </p>
               {track.duration && (
@@ -144,6 +148,18 @@ export function Tracklist({ tracks, album, artist, onOpenTrack }: TracklistProps
                 lien manquant
               </span>
             )}
+
+            <LikeButton
+              type="track"
+              id={track.id}
+              size={14}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100 data-[liked=true]:opacity-100 data-[liked=true]:text-[#e85d7e]"
+            />
+
+            <AddToPlaylistButton
+              trackId={track.id}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100"
+            />
 
             {onOpenTrack && (
               <button
