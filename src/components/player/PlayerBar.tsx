@@ -76,9 +76,9 @@ export function PlayerBar() {
             onClick={playPrev}
             disabled={!canPlayPrev}
             aria-label="Précédent"
-            className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed active:scale-90 transition-all"
+            className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed active:scale-90 transition-all"
           >
-            <SkipBack size={18} fill="currentColor" />
+            <SkipBack size={16} fill="currentColor" />
           </button>
 
           <button
@@ -100,29 +100,19 @@ export function PlayerBar() {
             onClick={playNext}
             disabled={!canPlayNext}
             aria-label="Suivant"
-            className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed active:scale-90 transition-all"
+            className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed active:scale-90 transition-all"
           >
-            <SkipForward size={18} fill="currentColor" />
+            <SkipForward size={16} fill="currentColor" />
           </button>
         </div>
 
-        {/* Like + playlist (mobile) */}
+        {/* Like (mobile) */}
         <LikeButton
           type="track"
           id={track.id}
           size={16}
           className="w-8 h-8 flex items-center justify-center text-white/25 hover:text-white/60 active:scale-90 transition-all shrink-0 data-[liked=true]:text-[#e85d7e]"
         />
-
-        {/* Partager (mobile) */}
-        {artist?.slug && album?.slug && (
-          <ShareButton
-            url={`/artist/${artist.slug}/album/${album.slug}`}
-            title={`"${track.title}" par ${artist.name} — Afan`}
-            iconOnly
-            className="w-8 h-8 flex items-center justify-center text-white/25 hover:text-white/60 active:scale-90 transition-all shrink-0"
-          />
-        )}
 
         {/* Fermer */}
         <button

@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Search } from 'lucide-react';
+import { ChevronLeft, Search, LogIn, LogOut } from 'lucide-react';
 import { useSearch } from '@/lib/search-context';
+import { useSession, signOut } from '@/lib/auth-client';
+import { useLibrary } from '@/lib/library-context';
 
 interface ArtistNavProps {
   name: string;
@@ -14,6 +16,8 @@ export function ArtistNav({ name, heroHeight = 520 }: ArtistNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [showName, setShowName] = useState(false);
   const { open } = useSearch();
+  const { data: session } = useSession();
+  const { showAuthModal } = useLibrary();
 
   useEffect(() => {
     const onScroll = () => {
@@ -55,14 +59,34 @@ export function ArtistNav({ name, heroHeight = 520 }: ArtistNavProps) {
           <span className="text-white/90 text-sm font-semibold tracking-wide">{name}</span>
         </div>
 
-        {/* Bouton recherche */}
-        <button
-          onClick={open}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/40 hover:text-white/70 text-xs transition-all"
-        >
-          <Search size={12} />
-          <kbd className="hidden sm:inline font-mono text-[10px] text-white/20">⌘K</kbd>
-        </button>
+        {/* Actions droite */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={open}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/40 hover:text-white/70 text-xs transition-all"
+          >
+            <Search size={12} />
+            <kbd className="hidden sm:inline font-mono text-[10px] text-white/20">⌘K</kbd>
+          </button>
+
+          {session?.user ? (
+            <button
+              onClick={() => signOut()}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/30 hover:text-white/60 text-xs transition-all"
+              title="Se déconnecter"
+            >
+              <LogOut size={12} />
+            </button>
+          ) : (
+            <button
+              onClick={showAuthModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-black text-xs font-semibold hover:bg-white/90 active:scale-95 transition-all"
+            >
+              <LogIn size={12} />
+              <span className="hidden sm:inline">Se connecter</span>
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );

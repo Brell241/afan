@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, ListMusic, Play, Trash2, Music2, LogIn, ChevronRight } from 'lucide-react';
+import { Heart, ListMusic, Play, Trash2, Music2, LogIn, ChevronRight, ScrollText } from 'lucide-react';
 import { useSession } from '@/lib/auth-client';
 import { useLibrary } from '@/lib/library-context';
 import { usePlayer } from '@/lib/player-context';
+import { getLevel } from '@/lib/levels';
 import type { QueueEntry } from '@/lib/player-context';
+import type { Contribution } from '@/db/schema';
 
 function EmptyState({ onLogin }: { onLogin: () => void }) {
   return (
@@ -34,14 +36,31 @@ interface LikedTrack {
   artist: { name: string; slug: string };
 }
 
+const CONTRIB_TYPE_LABELS: Record<string, string> = {
+  lyrics: 'Paroles', anecdote: 'Anecdote', link: 'Lien', media: 'Média',
+  add_artist: 'Nouvel artiste', add_album: 'Nouvel album',
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  pending:  'bg-white/[0.08] text-white/40',
+  approved: 'bg-[#1DB954]/15 text-[#1DB954]',
+  rejected: 'bg-red-500/10 text-red-400',
+};
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'En attente', approved: 'Approuvée', rejected: 'Rejetée',
+};
+
 export default function LibraryPage() {
   const { data: session } = useSession();
   const { playlists, likedTrackIds, toggleLike, deletePlaylist, showAuthModal } = useLibrary();
   const { playAll } = usePlayer();
-  const [tab, setTab] = useState<'liked' | 'playlists'>('liked');
+  const [tab, setTab] = useState<'liked' | 'playlists' | 'contributions'>('liked');
   const [likedTracks, setLikedTracks] = useState<LikedTrack[] | null>(null);
   const [loadingLiked, setLoadingLiked] = useState(false);
   const [playlistTracks, setPlaylistTracks] = useState<Record<string, { entries: QueueEntry[]; loading: boolean }>>({});
+  const [myContributions, setMyContributions] = useState<Contribution[] | null>(null);
+  const [approvedCount, setApprovedCount] = useState(0);
+  const [loadingContribs, setLoadingContribs] = useState(false);
 
   async function loadLikedTracks() {
     if (likedTracks !== null || loadingLiked) return;
@@ -66,18 +85,41 @@ export default function LibraryPage() {
     }));
   }
 
-  function handleTabLiked() {
-    setTab('liked');
-    loadLikedTracks();
+  async function loadContributions() {
+    if (myContributions !== null || loadingContribs) return;
+    setLoadingContribs(true);
+    try {
+      const res = await fetch('/api/contributions/mine');
+      const data = await res.json();
+      setMyContributions(data.contributions ?? []);
+      setApprovedCount(data.approvedCount ?? 0);
+    } finally {
+      setLoadingContribs(false);
+    }
   }
+
+  function handleTabLiked() { setTab('liked'); loadLikedTracks(); }
+  function handleTabContribs() { setTab('contributions'); loadContributions(); }
+
+  const level = getLevel(approvedCount);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-4xl mx-auto px-5 sm:px-8 pt-20 pb-24">
 
-        <div className="mb-8">
-          <p className="text-white/25 text-[10px] font-bold uppercase tracking-widest mb-1">Bibliothèque</p>
-          <h1 className="text-white font-black text-4xl tracking-tight">Ma musique</h1>
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <p className="text-white/25 text-[10px] font-bold uppercase tracking-widest mb-1">Bibliothèque</p>
+            <h1 className="text-white font-black text-4xl tracking-tight">Ma musique</h1>
+          </div>
+          {session?.user && approvedCount > 0 && (
+            <span
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border"
+              style={{ color: level.color, borderColor: `${level.color}40`, background: `${level.color}15` }}
+            >
+              {level.emoji} {level.name}
+            </span>
+          )}
         </div>
 
         {!session?.user ? (
@@ -86,10 +128,14 @@ export default function LibraryPage() {
           <>
             {/* Onglets */}
             <div className="flex gap-1 mb-8 border-b border-white/[0.06]">
-              {([['liked', 'Titres aimés', Heart], ['playlists', 'Playlists', ListMusic]] as const).map(([key, label, Icon]) => (
+              {([
+                ['liked', 'Titres aimés', Heart, handleTabLiked],
+                ['playlists', 'Playlists', ListMusic, () => setTab('playlists')],
+                ['contributions', 'Contributions', ScrollText, handleTabContribs],
+              ] as const).map(([key, label, Icon, handler]) => (
                 <button
                   key={key}
-                  onClick={() => key === 'liked' ? handleTabLiked() : setTab('playlists')}
+                  onClick={handler}
                   className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                     tab === key
                       ? 'border-white text-white'
@@ -103,6 +149,9 @@ export default function LibraryPage() {
                   )}
                   {key === 'playlists' && playlists.length > 0 && (
                     <span className="text-[10px] text-white/30 font-mono">{playlists.length}</span>
+                  )}
+                  {key === 'contributions' && myContributions !== null && myContributions.length > 0 && (
+                    <span className="text-[10px] text-white/30 font-mono">{myContributions.length}</span>
                   )}
                 </button>
               ))}
@@ -209,6 +258,61 @@ export default function LibraryPage() {
                       </div>
                     );
                   })
+                )}
+              </div>
+            )}
+
+            {/* Contributions */}
+            {tab === 'contributions' && (
+              <div>
+                {loadingContribs ? (
+                  <div className="flex justify-center py-16">
+                    <span className="w-5 h-5 rounded-full border-2 border-white/10 border-t-white/50 animate-spin" />
+                  </div>
+                ) : myContributions === null ? null : myContributions.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <p className="text-white/25 text-sm">Tu n&apos;as pas encore contribué.</p>
+                    <p className="text-white/15 text-xs mt-1">
+                      Propose des paroles, des anecdotes ou de nouveaux artistes depuis les pages album.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Résumé niveau */}
+                    <div className="flex items-center gap-3 mb-6 p-4 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+                      <span className="text-2xl">{level.emoji}</span>
+                      <div>
+                        <p className="text-white font-semibold text-sm" style={{ color: level.color }}>{level.name}</p>
+                        <p className="text-white/30 text-xs">
+                          {approvedCount} contribution{approvedCount !== 1 ? 's' : ''} approuvée{approvedCount !== 1 ? 's' : ''}
+                          {' · '}{myContributions.length} au total
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-white/[0.05]">
+                      {myContributions.map((c) => (
+                        <div key={c.id} className="flex items-center gap-3 py-3 px-2">
+                          <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_STYLES[c.status ?? 'pending']}`}>
+                            {STATUS_LABELS[c.status ?? 'pending']}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white/70 text-sm truncate">
+                              {c.extra
+                                ? (() => { try { const e = JSON.parse(c.extra) as Record<string, unknown>; return String(e.name ?? e.title ?? c.content ?? '—'); } catch { return c.content ?? '—'; } })()
+                                : (c.content?.slice(0, 80) ?? '—')
+                              }
+                            </p>
+                            <p className="text-white/25 text-[11px] mt-0.5">
+                              {CONTRIB_TYPE_LABELS[c.type] ?? c.type}
+                              {' · '}
+                              {new Date(c.created_at!).toLocaleDateString('fr-FR')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             )}

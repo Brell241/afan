@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { eq, ne, sql } from 'drizzle-orm';
+import { eq, ne, sql, count } from 'drizzle-orm';
 import Link from 'next/link';
 import Image from 'next/image';
 import { db } from '@/db';
-import { artists, albums } from '@/db/schema';
+import { artists, albums, likes } from '@/db/schema';
 import { Radio } from 'lucide-react';
 import { ArtistNav } from '@/components/artist/ArtistNav';
 import { ArtistHeader } from '@/components/artist/ArtistHeader';
@@ -65,6 +65,12 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
   const yearStart = years.length ? Math.min(...years) : null;
   const yearEnd = years.length ? Math.max(...years) : null;
 
+  const [artistLikeRow] = await db
+    .select({ cnt: count() })
+    .from(likes)
+    .where(eq(likes.artist_id, artist.id));
+  const artistLikeCount = artistLikeRow?.cnt ?? 0;
+
   let related: { id: string; name: string; slug: string; avatar_url: string | null; photo_url: string | null }[] = [];
   try {
     related = await db
@@ -111,6 +117,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
             yearStart={yearStart}
             yearEnd={yearEnd}
             death_year={artist.death_year}
+            likeCount={artistLikeCount}
           />
 
           {/* Contenu principal — prend tout l'espace restant */}

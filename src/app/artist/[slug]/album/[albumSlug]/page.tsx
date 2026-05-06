@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count, inArray } from 'drizzle-orm';
 import { Music2 } from 'lucide-react';
 import Link from 'next/link';
 import { db } from '@/db';
-import { artists, albums, tracks } from '@/db/schema';
+import { artists, albums, tracks, likes } from '@/db/schema';
 import { AlbumNav } from '@/components/album/AlbumNav';
 import { AlbumCoverUpload } from '@/components/album/AlbumCoverUpload';
 import { TracklistWithSheet } from '@/components/album/TracklistWithSheet';
@@ -70,6 +70,24 @@ export default async function AlbumPage({
     .from(tracks)
     .where(eq(tracks.album_id, album.id))
     .orderBy(tracks.track_number);
+
+  const trackIds = albumTracks.map((t) => t.id);
+  const trackLikeRows = trackIds.length
+    ? await db
+        .select({ trackId: likes.track_id, cnt: count() })
+        .from(likes)
+        .where(inArray(likes.track_id, trackIds))
+        .groupBy(likes.track_id)
+    : [];
+  const trackLikeCounts: Record<string, number> = Object.fromEntries(
+    trackLikeRows.map((r) => [r.trackId!, r.cnt])
+  );
+
+  const [albumLikeRow] = await db
+    .select({ cnt: count() })
+    .from(likes)
+    .where(eq(likes.album_id, album.id));
+  const albumLikeCount = albumLikeRow?.cnt ?? 0;
 
   const creditsList = album.credits?.split(' · ') ?? [];
 
@@ -144,6 +162,10 @@ export default async function AlbumPage({
                   <><span className="text-white/20">·</span>
                   <span className="text-white/40">{albumTracks.length} titre{albumTracks.length !== 1 ? 's' : ''}</span></>
                 )}
+                {albumLikeCount > 0 && (
+                  <><span className="text-white/20">·</span>
+                  <span className="text-white/40">{albumLikeCount} like{albumLikeCount !== 1 ? 's' : ''}</span></>
+                )}
               </div>
               <div className="mt-4 flex items-center gap-3 flex-wrap">
                 <PlayAlbumButton
@@ -180,7 +202,7 @@ export default async function AlbumPage({
             <span className="flex-1 ml-4 text-white/25 text-[10px] uppercase tracking-widest">Titre</span>
             <Music2 size={13} className="text-white/25" />
           </div>
-          <TracklistWithSheet tracks={albumTracks} album={album} artist={{ name: artist.name, slug: artist.slug }} />
+          <TracklistWithSheet tracks={albumTracks} album={album} artist={{ name: artist.name, slug: artist.slug }} likeCounts={trackLikeCounts} />
         </section>
 
         {/* Crédits */}

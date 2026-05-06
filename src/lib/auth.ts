@@ -9,6 +9,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg', schema }),
+  user: {
+    additionalFields: {
+      role: { type: 'string', defaultValue: 'user', required: false },
+    },
+  },
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {

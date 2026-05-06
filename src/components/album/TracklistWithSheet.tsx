@@ -10,9 +10,10 @@ interface TracklistWithSheetProps {
   tracks: Track[];
   album: Album;
   artist: { name: string; slug: string };
+  likeCounts?: Record<string, number>;
 }
 
-export function TracklistWithSheet({ tracks, album, artist }: TracklistWithSheetProps) {
+export function TracklistWithSheet({ tracks, album, artist, likeCounts }: TracklistWithSheetProps) {
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const router = useRouter();
 
@@ -32,6 +33,7 @@ export function TracklistWithSheet({ tracks, album, artist }: TracklistWithSheet
         album={album}
         artist={artist}
         onOpenTrack={(track) => setSelectedTrackId(track.id)}
+        likeCounts={likeCounts}
       />
       <TrackSheet
         track={selectedTrack}

@@ -9,6 +9,7 @@ export const user = pgTable('user', {
   image: text('image'),
   createdAt: timestamp('created_at').$defaultFn(() => new Date()).notNull(),
   updatedAt: timestamp('updated_at').$defaultFn(() => new Date()).notNull(),
+  role: text('role').default('user').notNull(),
 });
 
 export const session = pgTable('session', {
@@ -88,14 +89,18 @@ export const tracks = pgTable('tracks', {
 
 export const contributions = pgTable('contributions', {
   id: uuid('id').defaultRandom().primaryKey(),
-  type: text('type', { enum: ['lyrics', 'anecdote', 'link', 'media'] }).notNull(),
+  type: text('type', { enum: ['lyrics', 'anecdote', 'link', 'media', 'add_artist', 'add_album'] }).notNull(),
   content: text('content'),
   file_url: text('file_url'),
   track_id: uuid('track_id').references(() => tracks.id, { onDelete: 'set null' }),
   album_id: uuid('album_id').references(() => albums.id, { onDelete: 'set null' }),
+  artist_id: text('artist_id'),
+  extra: text('extra'),
   user_id: text('user_id'),
   status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending'),
   created_at: timestamp('created_at').defaultNow(),
+  reviewed_at: timestamp('reviewed_at'),
+  reviewed_by: text('reviewed_by'),
 });
 
 export const likes = pgTable('likes', {
@@ -138,3 +143,4 @@ export type Like = typeof likes.$inferSelect;
 export type Playlist = typeof playlists.$inferSelect;
 export type PlaylistTrack = typeof playlist_tracks.$inferSelect;
 export type Play = typeof plays.$inferSelect;
+export type User = typeof user.$inferSelect;

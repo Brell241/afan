@@ -14,6 +14,7 @@ interface TracklistProps {
   album: Album;
   artist: { name: string; slug: string };
   onOpenTrack?: (track: Track) => void;
+  likeCounts?: Record<string, number>;
 }
 
 function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
@@ -72,7 +73,7 @@ function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
   );
 }
 
-export function Tracklist({ tracks, album, artist, onOpenTrack }: TracklistProps) {
+export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: TracklistProps) {
   const { play, track: activeTrack } = usePlayer();
   const playTrack = (track: Track) =>
     play(track, album, artist, tracks.map((t) => ({ track: t, album })));
@@ -153,7 +154,9 @@ export function Tracklist({ tracks, album, artist, onOpenTrack }: TracklistProps
               type="track"
               id={track.id}
               size={14}
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100 data-[liked=true]:opacity-100 data-[liked=true]:text-[#e85d7e]"
+              count={likeCounts?.[track.id] ?? 0}
+              showCount
+              className="shrink-0 flex items-center justify-center gap-0.5 px-1.5 h-7 rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100 data-[liked=true]:opacity-100 data-[liked=true]:text-[#e85d7e]"
             />
 
             <AddToPlaylistButton

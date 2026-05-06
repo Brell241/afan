@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Camera, Disc3, CalendarDays } from 'lucide-react';
+import { Camera, Disc3, CalendarDays, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ArtistSidebarProps {
@@ -16,6 +16,7 @@ interface ArtistSidebarProps {
   yearStart?: number | null;
   yearEnd?: number | null;
   death_year?: number | null;
+  likeCount?: number;
 }
 
 export function ArtistSidebar({
@@ -28,6 +29,7 @@ export function ArtistSidebar({
   yearStart,
   yearEnd,
   death_year,
+  likeCount,
 }: ArtistSidebarProps) {
   const [avatarUrl, setAvatarUrl] = useState(avatar_url ?? photo_url);
   const [uploading, setUploading] = useState(false);
@@ -98,6 +100,15 @@ export function ArtistSidebar({
               <span className="text-[#c8c8c8] font-medium">{albumCount}</span> albums
             </span>
           </div>
+
+          {likeCount != null && likeCount > 0 && (
+            <div className="flex items-center gap-2.5 text-[#686868] text-xs">
+              <Heart size={11} className="shrink-0" />
+              <span>
+                <span className="text-[#c8c8c8] font-medium">{likeCount}</span> like{likeCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
 
           {yearStart && yearEnd && (
             <div className="flex items-center gap-2.5 text-[#686868] text-xs">
