@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Camera, Disc3, CalendarDays, Heart } from 'lucide-react';
 import { toast } from 'sonner';
+import { useIsAdmin } from '@/lib/use-is-admin';
 
 interface ArtistSidebarProps {
   id: string;
@@ -35,6 +36,7 @@ export function ArtistSidebar({
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const isAdmin = useIsAdmin();
 
   async function upload(file: File) {
     setUploading(true);
@@ -62,8 +64,8 @@ export function ArtistSidebar({
       <div className="px-7 py-8 flex flex-col gap-7">
         {/* Avatar */}
         <div
-          className="group relative w-[128px] h-[128px] rounded-2xl overflow-hidden bg-[#1c1c1c] cursor-pointer shadow-2xl ring-1 ring-white/8"
-          onClick={() => inputRef.current?.click()}
+          className={`group relative w-[128px] h-[128px] rounded-2xl overflow-hidden bg-[#1c1c1c] shadow-2xl ring-1 ring-white/8 ${isAdmin ? 'cursor-pointer' : ''}`}
+          onClick={() => isAdmin && inputRef.current?.click()}
         >
           {avatarUrl ? (
             <Image src={avatarUrl} alt={name} fill sizes="128px" className="object-cover" />
@@ -72,25 +74,29 @@ export function ArtistSidebar({
               <Camera size={30} className="text-white/15" />
             </div>
           )}
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            {uploading ? (
-              <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-            ) : (
-              <Camera size={16} className="text-white" />
-            )}
-          </div>
+          {isAdmin && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              {uploading ? (
+                <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              ) : (
+                <Camera size={16} className="text-white" />
+              )}
+            </div>
+          )}
         </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) upload(f);
-            e.target.value = '';
-          }}
-        />
+        {isAdmin && (
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f);
+              e.target.value = '';
+            }}
+          />
+        )}
 
         {/* Métadonnées */}
         <div className="flex flex-col gap-2">

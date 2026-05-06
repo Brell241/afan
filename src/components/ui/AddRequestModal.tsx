@@ -10,15 +10,24 @@ interface AddRequestModalProps {
   open: boolean;
   onClose: () => void;
   existingArtists?: { id: string; name: string }[];
+  defaultTab?: 'artist' | 'album';
+  defaultArtistId?: string;
+  defaultArtistName?: string;
 }
 
 type Tab = 'artist' | 'album';
 type Step = 'form' | 'done';
 
-export function AddRequestModal({ open, onClose, existingArtists = [] }: AddRequestModalProps) {
+export function AddRequestModal({
+  open, onClose,
+  existingArtists = [],
+  defaultTab,
+  defaultArtistId,
+  defaultArtistName,
+}: AddRequestModalProps) {
   const { data: session } = useSession();
   const { showAuthModal } = useLibrary();
-  const [tab, setTab] = useState<Tab>('artist');
+  const [tab, setTab] = useState<Tab>(defaultTab ?? 'artist');
   const [step, setStep] = useState<Step>('form');
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +39,7 @@ export function AddRequestModal({ open, onClose, existingArtists = [] }: AddRequ
 
   // Album
   const [albumTitle, setAlbumTitle] = useState('');
-  const [albumArtistId, setAlbumArtistId] = useState('');
+  const [albumArtistId, setAlbumArtistId] = useState(defaultArtistId ?? '');
   const [albumArtistFree, setAlbumArtistFree] = useState('');
   const [albumYear, setAlbumYear] = useState('');
   const [albumLabel, setAlbumLabel] = useState('');
@@ -39,8 +48,9 @@ export function AddRequestModal({ open, onClose, existingArtists = [] }: AddRequ
   if (!open) return null;
 
   function resetForm() {
+    setTab(defaultTab ?? 'artist');
     setArtistName(''); setArtistBio(''); setArtistBorn(''); setArtistDeath('');
-    setAlbumTitle(''); setAlbumArtistId(''); setAlbumArtistFree(''); setAlbumYear(''); setAlbumLabel(''); setAlbumFormat('');
+    setAlbumTitle(''); setAlbumArtistId(defaultArtistId ?? ''); setAlbumArtistFree(''); setAlbumYear(''); setAlbumLabel(''); setAlbumFormat('');
     setStep('form');
   }
 
@@ -185,7 +195,11 @@ export function AddRequestModal({ open, onClose, existingArtists = [] }: AddRequ
                   </div>
                   <div>
                     <label className="text-white/50 text-xs mb-1 block">Artiste</label>
-                    {existingArtists.length > 0 ? (
+                    {defaultArtistId && defaultArtistName ? (
+                      <div className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white/60 text-sm">
+                        {defaultArtistName}
+                      </div>
+                    ) : existingArtists.length > 0 ? (
                       <select value={albumArtistId} onChange={(e) => setAlbumArtistId(e.target.value)}
                         className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm focus:outline-none focus:border-white/30 transition-colors appearance-none">
                         <option value="">— Artiste non listé —</option>

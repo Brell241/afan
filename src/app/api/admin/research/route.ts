@@ -1,9 +1,21 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { headers } from 'next/headers';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { user } from '@/db/schema';
+import { auth } from '@/lib/auth';
+
+async function requireAdmin() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return false;
+  const [u] = await db.select({ role: user.role }).from(user).where(eq(user.id, session.user.id));
+  return u?.role === 'admin';
+}
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV !== 'development') {
+  if (!(await requireAdmin())) {
     return new Response('Forbidden', { status: 403 });
   }
 

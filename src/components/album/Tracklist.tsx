@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { usePlayer } from '@/lib/player-context';
 import { LikeButton } from '@/components/ui/LikeButton';
 import { AddToPlaylistButton } from '@/components/ui/AddToPlaylistButton';
+import { useIsAdmin } from '@/lib/use-is-admin';
 import type { Track, Album } from '@/db/schema';
 
 interface TracklistProps {
@@ -21,6 +22,7 @@ function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
   const [imageUrl, setImageUrl] = useState(track.image_url ?? album.image_url);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isAdmin = useIsAdmin();
 
   async function upload(file: File) {
     setUploading(true);
@@ -41,8 +43,8 @@ function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
 
   return (
     <div
-      className="group/thumb relative w-10 h-10 rounded overflow-hidden shrink-0 bg-white/5 cursor-pointer"
-      onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
+      className={`group/thumb relative w-10 h-10 rounded overflow-hidden shrink-0 bg-white/5 ${isAdmin ? 'cursor-pointer' : ''}`}
+      onClick={(e) => { if (!isAdmin) return; e.stopPropagation(); inputRef.current?.click(); }}
     >
       {imageUrl ? (
         <Image src={imageUrl} alt={track.title} fill sizes="40px" className="object-cover" />
@@ -51,24 +53,28 @@ function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
           <Music2 size={14} className="text-white/15" />
         </div>
       )}
-      <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-        {uploading ? (
-          <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-        ) : (
-          <Camera size={11} className="text-white" />
-        )}
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) upload(f);
-          e.target.value = '';
-        }}
-      />
+      {isAdmin && (
+        <>
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+            {uploading ? (
+              <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            ) : (
+              <Camera size={11} className="text-white" />
+            )}
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f);
+              e.target.value = '';
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }
