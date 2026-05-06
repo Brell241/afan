@@ -89,7 +89,7 @@ export const tracks = pgTable('tracks', {
 
 export const contributions = pgTable('contributions', {
   id: uuid('id').defaultRandom().primaryKey(),
-  type: text('type', { enum: ['lyrics', 'anecdote', 'link', 'media', 'add_artist', 'add_album'] }).notNull(),
+  type: text('type', { enum: ['lyrics', 'anecdote', 'link', 'media', 'add_artist', 'add_album', 'add_track'] }).notNull(),
   content: text('content'),
   file_url: text('file_url'),
   track_id: uuid('track_id').references(() => tracks.id, { onDelete: 'set null' }),

@@ -8,6 +8,10 @@ import { usePlayer } from '@/lib/player-context';
 import { LikeButton } from '@/components/ui/LikeButton';
 import { AddToPlaylistButton } from '@/components/ui/AddToPlaylistButton';
 import { useIsAdmin } from '@/lib/use-is-admin';
+import { useSession } from '@/lib/auth-client';
+import { useLibrary } from '@/lib/library-context';
+import { AddRequestModal } from '@/components/ui/AddRequestModal';
+import { PlusCircle } from 'lucide-react';
 import type { Track, Album } from '@/db/schema';
 
 interface TracklistProps {
@@ -81,6 +85,10 @@ function TrackThumbnail({ track, album }: { track: Track; album: Album }) {
 
 export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: TracklistProps) {
   const { play, track: activeTrack } = usePlayer();
+  const [proposeOpen, setProposeOpen] = useState(false);
+  const { data: session } = useSession();
+  const { showAuthModal } = useLibrary();
+
   const playTrack = (track: Track) =>
     play(track, album, artist, tracks.map((t) => ({ track: t, album })));
 
@@ -93,6 +101,14 @@ export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: Tr
   }
 
   return (
+    <>
+      <AddRequestModal
+        open={proposeOpen}
+        onClose={() => setProposeOpen(false)}
+        defaultTab="track"
+        defaultAlbumId={album.id}
+        defaultAlbumTitle={album.title}
+      />
     <div className="divide-y divide-white/5">
       {tracks.map((track, idx) => {
         const isActive = activeTrack?.id === track.id;
@@ -183,5 +199,17 @@ export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: Tr
         );
       })}
     </div>
+
+      {/* Bouton proposer une chanson */}
+      <div className="mt-4 flex justify-center">
+        <button
+          onClick={() => session?.user ? setProposeOpen(true) : showAuthModal()}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/40 hover:text-white/70 text-xs font-medium transition-all"
+        >
+          <PlusCircle size={13} />
+          Proposer une chanson manquante
+        </button>
+      </div>
+    </>
   );
 }

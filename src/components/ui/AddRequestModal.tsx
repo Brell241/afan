@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, User, Disc3, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, User, Disc3, Music2, Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/auth-client';
 import { useLibrary } from '@/lib/library-context';
@@ -10,12 +10,14 @@ interface AddRequestModalProps {
   open: boolean;
   onClose: () => void;
   existingArtists?: { id: string; name: string }[];
-  defaultTab?: 'artist' | 'album';
+  defaultTab?: 'artist' | 'album' | 'track';
   defaultArtistId?: string;
   defaultArtistName?: string;
+  defaultAlbumId?: string;
+  defaultAlbumTitle?: string;
 }
 
-type Tab = 'artist' | 'album';
+type Tab = 'artist' | 'album' | 'track';
 type Step = 'form' | 'done';
 
 export function AddRequestModal({
@@ -24,6 +26,8 @@ export function AddRequestModal({
   defaultTab,
   defaultArtistId,
   defaultArtistName,
+  defaultAlbumId,
+  defaultAlbumTitle,
 }: AddRequestModalProps) {
   const { data: session } = useSession();
   const { showAuthModal } = useLibrary();
@@ -45,12 +49,17 @@ export function AddRequestModal({
   const [albumLabel, setAlbumLabel] = useState('');
   const [albumFormat, setAlbumFormat] = useState('');
 
+  // Chanson
+  const [trackTitle, setTrackTitle] = useState('');
+  const [trackNumber, setTrackNumber] = useState('');
+
   if (!open) return null;
 
   function resetForm() {
     setTab(defaultTab ?? 'artist');
     setArtistName(''); setArtistBio(''); setArtistBorn(''); setArtistDeath('');
     setAlbumTitle(''); setAlbumArtistId(defaultArtistId ?? ''); setAlbumArtistFree(''); setAlbumYear(''); setAlbumLabel(''); setAlbumFormat('');
+    setTrackTitle(''); setTrackNumber('');
     setStep('form');
   }
 
@@ -79,7 +88,7 @@ export function AddRequestModal({
             death_year: artistDeath ? Number(artistDeath) : undefined,
           }),
         };
-      } else {
+      } else if (tab === 'album') {
         if (!albumTitle.trim() || !albumYear) { toast.error('Titre et année sont requis.'); return; }
         body = {
           type: 'add_album',
@@ -93,6 +102,18 @@ export function AddRequestModal({
             artist_name: albumArtistId
               ? existingArtists.find((a) => a.id === albumArtistId)?.name
               : albumArtistFree.trim() || undefined,
+          }),
+        };
+      } else {
+        if (!trackTitle.trim()) { toast.error('Le titre est requis.'); return; }
+        body = {
+          type: 'add_track',
+          content: trackTitle.trim(),
+          album_id: defaultAlbumId || undefined,
+          extra: JSON.stringify({
+            title: trackTitle.trim(),
+            track_number: trackNumber ? Number(trackNumber) : undefined,
+            album_title: defaultAlbumTitle,
           }),
         };
       }
@@ -141,7 +162,7 @@ export function AddRequestModal({
 
             {/* Tabs */}
             <div className="flex gap-1 mb-5 p-1 bg-white/[0.05] rounded-xl">
-              {([['artist', 'Artiste', User], ['album', 'Album', Disc3]] as const).map(([id, label, Icon]) => (
+              {([['artist', 'Artiste', User], ['album', 'Album', Disc3], ['track', 'Chanson', Music2]] as const).map(([id, label, Icon]) => (
                 <button
                   key={id}
                   onClick={() => setTab(id)}
@@ -185,7 +206,7 @@ export function AddRequestModal({
                     </div>
                   </div>
                 </>
-              ) : (
+              ) : tab === 'album' ? (
                 <>
                   <div>
                     <label className="text-white/50 text-xs mb-1 block">Titre de l'album *</label>
@@ -237,6 +258,29 @@ export function AddRequestModal({
                     <label className="text-white/50 text-xs mb-1 block">Label / maison de disques</label>
                     <input value={albumLabel} onChange={(e) => setAlbumLabel(e.target.value)}
                       placeholder="Ex : Celluloid Records"
+                      className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-white/50 text-xs mb-1 block">Titre de la chanson *</label>
+                    <input value={trackTitle} onChange={(e) => setTrackTitle(e.target.value)} required
+                      placeholder="Ex : Liberté"
+                      className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors" />
+                  </div>
+                  {defaultAlbumTitle && (
+                    <div>
+                      <label className="text-white/50 text-xs mb-1 block">Album</label>
+                      <div className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white/60 text-sm">
+                        {defaultAlbumTitle}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-white/50 text-xs mb-1 block">Numéro de piste</label>
+                    <input value={trackNumber} onChange={(e) => setTrackNumber(e.target.value)} type="number" min="1" max="99"
+                      placeholder="Ex : 3"
                       className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors" />
                   </div>
                 </>

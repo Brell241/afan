@@ -4,7 +4,7 @@ import { contributions } from '@/db/schema';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 
-const VALID_TYPES = ['lyrics', 'anecdote', 'link', 'media', 'add_artist', 'add_album'] as const;
+const VALID_TYPES = ['lyrics', 'anecdote', 'link', 'media', 'add_artist', 'add_album', 'add_track'] as const;
 
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
