@@ -52,6 +52,7 @@ export function AddRequestModal({
   // Chanson
   const [trackTitle, setTrackTitle] = useState('');
   const [trackNumber, setTrackNumber] = useState('');
+  const [trackYoutube, setTrackYoutube] = useState('');
 
   if (!open) return null;
 
@@ -59,7 +60,7 @@ export function AddRequestModal({
     setTab(defaultTab ?? 'artist');
     setArtistName(''); setArtistBio(''); setArtistBorn(''); setArtistDeath('');
     setAlbumTitle(''); setAlbumArtistId(defaultArtistId ?? ''); setAlbumArtistFree(''); setAlbumYear(''); setAlbumLabel(''); setAlbumFormat('');
-    setTrackTitle(''); setTrackNumber('');
+    setTrackTitle(''); setTrackNumber(''); setTrackYoutube('');
     setStep('form');
   }
 
@@ -113,6 +114,7 @@ export function AddRequestModal({
           extra: JSON.stringify({
             title: trackTitle.trim(),
             track_number: trackNumber ? Number(trackNumber) : undefined,
+            youtube_url: trackYoutube.trim() || undefined,
             album_title: defaultAlbumTitle,
           }),
         };
@@ -277,10 +279,18 @@ export function AddRequestModal({
                       </div>
                     </div>
                   )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-white/50 text-xs mb-1 block">Numéro de piste</label>
+                      <input value={trackNumber} onChange={(e) => setTrackNumber(e.target.value)} type="number" min="1" max="99"
+                        placeholder="Ex : 3"
+                        className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors" />
+                    </div>
+                  </div>
                   <div>
-                    <label className="text-white/50 text-xs mb-1 block">Numéro de piste</label>
-                    <input value={trackNumber} onChange={(e) => setTrackNumber(e.target.value)} type="number" min="1" max="99"
-                      placeholder="Ex : 3"
+                    <label className="text-white/50 text-xs mb-1 block">Lien YouTube</label>
+                    <input value={trackYoutube} onChange={(e) => setTrackYoutube(e.target.value)} type="url"
+                      placeholder="https://youtube.com/watch?v=..."
                       className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors" />
                   </div>
                 </>
