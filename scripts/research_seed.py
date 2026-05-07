@@ -566,12 +566,41 @@ def fetch_yt_thumbnail(youtube_url: str) -> str | None:
 # Extraction de titres depuis les vidéos YouTube
 # ---------------------------------------------------------------------------
 
+def _strip_yt_suffixes(title: str) -> str:
+    """Supprime les suffixes parasites courants dans les titres YouTube."""
+    # "Titre | Musique Gabonaise", "Titre | Full Album", etc.
+    title = re.sub(r"\s*\|.*$", "", title).strip()
+    # Parenthèses/crochets descriptifs : (extrait), (clip officiel), [audio], (full album), etc.
+    title = re.sub(
+        r"\s*[\(\[]\s*(?:extrait|clip|officiel|official|audio|video|vid[eé]o|full\s*album|"
+        r"hd|hq|live|lyric|sous.titr[eé]|feat\b|ft\b)[^)\]]*[\)\]]",
+        "", title, flags=re.IGNORECASE
+    ).strip()
+    # Suffixes après le nom d'instrument : "EBANDO Ngombi from mbOka..." → "EBANDO"
+    title = re.sub(
+        r"\s+(?:ngombi|mougongo|balafon|bikutsi)\b.*$",
+        "", title, flags=re.IGNORECASE
+    ).strip()
+    # "joué par ...", "interprété par ...", "from mbOka...", "wGabon..."
+    title = re.sub(
+        r"\s+(?:jou[eé]\s+par|interpr[eé]t[eé]\s+par|from\s+\w+|w[A-Z]\w+Slideshow)\b.*$",
+        "", title, flags=re.IGNORECASE
+    ).strip()
+    # "Hommage à/a ..." au début ou milieu
+    title = re.sub(r"\s+[Hh]ommage\s+[àa]\b.*$", "", title).strip()
+    # "muntuta", "vidéo muntuta" parasites en fin
+    title = re.sub(r"\s+(?:muntuta|slideshow)\s*$", "", title, flags=re.IGNORECASE).strip()
+    return title
+
+
 def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
     """
     Extrait un titre de chanson propre depuis un titre de vidéo YouTube.
     Ex: 'Esprit et Culture... #AwouMawou#A.PepeNze' → 'Awou Mawou'
     Ex: 'DZALE - Andre Pépé NZE ( Clip Officiel)' → 'Dzale'
     Ex: 'André Pépé Nzé - Andia (Clip officiel)' → 'Andia'
+    Ex: 'Kadi Yombo | Musique Gabonaise' → 'Kadi Yombo'
+    Ex: 'Rite Bwiti (extrait) joué par Papé Nziengui' → 'Rite Bwiti'
     """
     artist_parts = {slugify(p) for p in artist_name.split() if len(p) > 2}
 
@@ -594,7 +623,7 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
         raw_title, re.IGNORECASE
     )
     if m:
-        title = m.group(1).strip()
+        title = _strip_yt_suffixes(m.group(1).strip())
         title = re.sub(r"\s+", " ", title)
         if title.isupper():
             title = title.capitalize()
@@ -605,7 +634,7 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
         raw_title, re.IGNORECASE
     )
     if m:
-        title = m.group(1).strip()
+        title = _strip_yt_suffixes(m.group(1).strip())
         title = re.sub(r"\s+", " ", title)
         if title.isupper():
             title = title.capitalize()
@@ -618,6 +647,7 @@ def _extract_song_title_from_video(raw_title: str, artist_name: str) -> str:
     )
     cleaned = re.sub(r"[^\w\s\'\-]", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" -–—")
+    cleaned = _strip_yt_suffixes(cleaned)
     return cleaned if len(cleaned) > 2 else raw_title.strip()
 
 
@@ -879,6 +909,68 @@ def build_youtube_compilation(artist_name: str) -> list[dict]:
         "image_url": None,
         "tracks": tracks,
     }]
+
+
+def build_youtube_supplement(artist_name: str, discography: list[dict]) -> dict | None:
+    """
+    Cherche sur YouTube des titres NON présents dans les albums officiels
+    et les regroupe dans un album 'Autres œuvres'.
+    À appeler après que la discographie officielle est complète.
+    """
+    existing_slugs = {
+        slugify(t["title"])
+        for album in discography
+        for t in album.get("tracks", [])
+    }
+
+    all_videos: list[dict] = []
+    seen_ids: set[str] = set()
+    for query in [
+        f"{artist_name} clip officiel",
+        f"{artist_name} musique",
+        artist_name,
+    ]:
+        print(f"  → YouTube supplément : {query}...")
+        vids = search_youtube_videos(query, max_results=30)
+        time.sleep(0.5)
+        for v in vids:
+            if v["id"] not in seen_ids:
+                seen_ids.add(v["id"])
+                all_videos.append(v)
+
+    tracks: list[dict] = []
+    seen_titles: set[str] = set()
+    for v in all_videos:
+        if not _is_song_video(v, artist_name):
+            continue
+        song_title = _extract_song_title_from_video(v["title"], artist_name)
+        s = slugify(song_title)
+        if s in seen_titles or s in existing_slugs or len(s) < 2:
+            continue
+        seen_titles.add(s)
+        tracks.append({
+            "title": song_title,
+            "track_number": len(tracks) + 1,
+            "youtube_url": f"https://www.youtube.com/watch?v={v['id']}",
+        })
+
+    if not tracks:
+        print("  ✗ Aucun titre supplémentaire trouvé")
+        return None
+
+    print(f"  ✓ {len(tracks)} titre(s) supplémentaire(s)")
+    return {
+        "title": "Autres œuvres",
+        "year": 2000,
+        "slug": "autres-oeuvres",
+        "format": "Singles & Featurings",
+        "label": "",
+        "genre": "",
+        "description": "",
+        "credits": None,
+        "image_url": None,
+        "tracks": tracks,
+    }
 
 
 def enrich_albums_from_gstore_and_youtube(
@@ -1444,6 +1536,11 @@ def main():
             enrich_albums_from_gstore_and_youtube(discography, artist_name, album_playlists=album_playlists)
         # Tous les tracks sans URL YouTube
         enrich_with_youtube(artist_name, discography)
+        # Supplément YouTube : titres hors albums officiels → "Autres œuvres"
+        print("\n📺 Recherche de titres supplémentaires (hors albums)...")
+        supplement = build_youtube_supplement(artist_name, discography)
+        if supplement:
+            discography.append(supplement)
 
     # 5b. Pochettes
     if use_images and discography:
