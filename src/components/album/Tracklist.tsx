@@ -116,9 +116,9 @@ export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: Tr
         return (
           <div
             key={track.id}
-            className={`flex items-center gap-4 py-2.5 px-3 group rounded-lg transition-colors cursor-default ${isActive ? 'bg-white/[0.06]' : 'hover:bg-white/5'}`}
+            className={`flex items-center gap-3 sm:gap-4 py-2.5 px-3 group rounded-lg transition-colors cursor-default ${isActive ? 'bg-white/[0.06]' : 'hover:bg-white/5'}`}
           >
-            {/* Numéro / play */}
+            {/* Numéro / play (desktop uniquement pour le hover-play) */}
             <div className="w-5 text-right shrink-0">
               {isActive ? (
                 <span className="text-[#1DB954]">
@@ -128,12 +128,12 @@ export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: Tr
                 </span>
               ) : (
                 <>
-                  <span className="text-white/30 text-xs font-mono group-hover:hidden">
+                  <span className="text-white/30 text-xs font-mono sm:group-hover:hidden">
                     {track.track_number ?? idx + 1}
                   </span>
                   <button
                     onClick={() => playTrack(track)}
-                    className="hidden group-hover:block text-white"
+                    className="hidden sm:group-hover:block text-white"
                   >
                     {track.youtube_url ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -159,15 +159,28 @@ export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: Tr
               )}
             </div>
 
+            {/* Bouton play mobile — icône compacte, toujours visible */}
+            {track.youtube_url && (
+              <button
+                onClick={() => playTrack(track)}
+                className={`sm:hidden shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-all ${isActive ? 'bg-[#1DB954]/20 text-[#1DB954]' : 'bg-white/[0.06] text-white/50 active:bg-[#1DB954]/20 active:text-[#1DB954]'}`}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              </button>
+            )}
+
+            {/* Actions desktop — masquées sur mobile */}
             {track.youtube_url ? (
               <button
                 onClick={() => playTrack(track)}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1DB954]/10 text-[#1DB954] text-xs hover:bg-[#1DB954]/20 transition-all opacity-0 group-hover:opacity-100"
+                className="hidden sm:flex shrink-0 items-center gap-1.5 px-3 py-1 rounded-full bg-[#1DB954]/10 text-[#1DB954] text-xs hover:bg-[#1DB954]/20 transition-all opacity-0 group-hover:opacity-100"
               >
                 ▶ Écouter
               </button>
             ) : (
-              <span className="text-white/15 text-xs opacity-0 group-hover:opacity-100 shrink-0">
+              <span className="hidden sm:block text-white/15 text-xs opacity-0 group-hover:opacity-100 shrink-0">
                 lien manquant
               </span>
             )}
@@ -178,19 +191,19 @@ export function Tracklist({ tracks, album, artist, onOpenTrack, likeCounts }: Tr
               size={14}
               count={likeCounts?.[track.id] ?? 0}
               showCount
-              className="shrink-0 flex items-center justify-center gap-0.5 px-1.5 h-7 rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100 data-[liked=true]:opacity-100 data-[liked=true]:text-[#e85d7e]"
+              className="hidden sm:flex shrink-0 items-center justify-center gap-0.5 px-1.5 h-7 rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100 data-[liked=true]:opacity-100 data-[liked=true]:text-[#e85d7e]"
             />
 
             <AddToPlaylistButton
               trackId={track.id}
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100"
+              className="hidden sm:flex shrink-0 w-7 h-7 items-center justify-center rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100"
             />
 
             {onOpenTrack && (
               <button
                 onClick={(e) => { e.stopPropagation(); onOpenTrack(track); }}
                 aria-label="Éditer ce titre"
-                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-white/25 hover:text-white/70 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100"
+                className="hidden sm:flex shrink-0 w-7 h-7 items-center justify-center rounded-md text-white/25 hover:text-white/70 hover:bg-white/[0.07] transition-all opacity-0 group-hover:opacity-100"
               >
                 <PencilLine size={13} />
               </button>
